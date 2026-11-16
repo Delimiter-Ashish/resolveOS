@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ResolveOS · Mission Control</title>
+<style>
+:root{
+  --bg:#04060c; --bg2:#070b15; --panel:rgba(16,24,44,.55); --panel2:rgba(22,32,58,.6);
+  --line:rgba(120,180,255,.12); --line2:rgba(120,180,255,.24);
+  --txt:#dce6f7; --mut:#7f8ca8; --dim:#4c5874;
+  --cyan:#3ee6ff; --vio:#9b7bff; --grn:#34e0a1; --amb:#ffc04d; --red:#ff4d6d; --pink:#ff6fd8; --org:#ff8a3d;
+  --mono:ui-monospace,"JetBrains Mono","SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+body{overflow:hidden}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+   radial-gradient(1200px 600px at 85% -10%,rgba(155,123,255,.16),transparent 60%),
+   radial-gradient(900px 500px at -10% 110%,rgba(62,230,255,.10),transparent 60%),
+   linear-gradient(rgba(120,180,255,.035) 1px,transparent 1px) 0 0/44px 44px,
+   linear-gradient(90deg,rgba(120,180,255,.035) 1px,transparent 1px) 0 0/44px 44px}
+button{font:inherit;color:inherit;cursor:pointer}
+input,textarea{font:inherit;color:var(--txt);background:rgba(4,8,18,.7);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;width:100%;outline:none}
+input:focus,textarea:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(62,230,255,.12)}
+.app{position:relative;z-index:1;display:grid;grid-template-columns:232px 1fr;grid-template-rows:60px auto 1fr;height:100vh}
+header{grid-column:1/3;display:flex;align-items:center;gap:18px;padding:0 22px;border-bottom:1px solid var(--line);background:rgba(4,7,14,.7);backdrop-filter:blur(14px)}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.3px;font-size:16px}
+.orb{width:22px;height:22px;border-radius:50%;background:conic-gradient(from 0deg,var(--cyan),var(--vio),var(--pink),var(--cyan));animation:spin 6s linear infinite;box-shadow:0 0 18px rgba(62,230,255,.5);position:relative}
+.orb:after{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--bg)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.logo small{font-weight:500;color:var(--mut);font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-left:4px}
+.hspace{flex:1}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border:1px solid var(--line2);border-radius:999px;font-size:12px;color:var(--mut);background:rgba(10,16,30,.6);font-family:var(--mono)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--dim)}
+.dot.live{background:var(--grn);box-shadow:0 0 10px var(--grn);animation:pulse 1.6s infinite}
+.dot.poll{background:var(--amb);box-shadow:0 0 10px var(--amb)}
+.dot.off{background:var(--red)}
+@keyframes pulse{50%{opacity:.35}}
+nav{border-right:1px solid var(--line);padding:18px 12px;display:flex;flex-direction:column;gap:4px;background:rgba(4,7,14,.45)}
+nav button{display:flex;align-items:center;gap:11px;width:100%;text-align:left;border:1px solid transparent;background:none;padding:10px 12px;border-radius:11px;color:var(--mut);font-weight:500}
+nav button:hover{color:var(--txt);background:rgba(120,180,255,.06)}
+nav button.on{color:var(--txt);background:linear-gradient(90deg,rgba(62,230,255,.14),rgba(155,123,255,.06));border-color:var(--line2)}
+nav button.on .ic{color:var(--cyan)}
+.ic{width:18px;text-align:center;font-family:var(--mono)}
+.badge{margin-left:auto;background:var(--pink);color:#140612;font-weight:700;font-size:11px;border-radius:999px;padding:1px 7px;display:none}
+.badge.show{display:inline-block;animation:pulse 1.4s infinite}
+.ngrp{font-size:10.5px;letter-spacing:1.8px;text-transform:uppercase;color:var(--dim);padding:14px 12px 4px}
+nav{overflow:auto}
+.alertbar{display:none;background:linear-gradient(90deg,rgba(255,77,109,.18),rgba(255,138,61,.08));border-bottom:1px solid rgba(255,77,109,.4);color:#ffd0d8;padding:8px 22px;font-size:13px;grid-column:1/3}
+.alertbar.show{display:block}
+.pill{font:600 10.5px var(--mono);letter-spacing:1px;text-transform:uppercase;padding:2px 8px;border-radius:6px;border:1px solid currentColor}
+.pill.red{color:var(--red)} .pill.amb{color:var(--amb)} .pill.grn{color:var(--grn)} .pill.cyn{color:var(--cyan)} .pill.vio{color:var(--vio)} .pill.pnk{color:var(--pink)}
+.bar{height:8px;border-radius:9px;background:rgba(120,180,255,.1);overflow:hidden}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--vio));border-radius:9px}
+.bar.ok>i{background:var(--grn)}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:12px;overflow:hidden}
+.seg button{background:none;border:0;padding:10px 16px;color:var(--mut);font-weight:600}
+.seg button.on{background:linear-gradient(135deg,rgba(62,230,255,.25),rgba(155,123,255,.2));color:var(--txt)}
+select{font:inherit;color:var(--txt);background:rgba(4,8,18,.7);border:1px solid var(--line2);border-radius:10px;padding:10px}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{background:none;border:1px solid transparent;padding:6px 12px;border-radius:9px;color:var(--mut)}
+.tabs button.on{border-color:var(--line2);color:var(--txt);background:rgba(62,230,255,.08)}
+canvas.gal{width:100%;height:560px;border-radius:14px;display:block;background:radial-gradient(900px 500px at 50% 40%,rgba(30,50,100,.25),transparent 70%)}
+.rp{display:flex;gap:12px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.rp input[type=range]{flex:1;min-width:220px;accent-color:var(--cyan);padding:0;border:0;background:none}
+.rp .lbl{font-family:var(--mono);font-size:12px;color:var(--mut);min-width:200px}
+.fx{font-family:var(--mono);font-size:12.5px;display:flex;flex-direction:column;gap:4px;max-height:200px;overflow:auto;margin-top:10px}
+.fx div{padding:4px 8px;border-left:2px solid var(--line2);color:var(--mut)}
+.fx div.now{border-left-color:var(--grn);color:var(--txt);background:rgba(52,224,161,.07);animation:in .3s}
+.topo .node rect{cursor:pointer}
+.sk path{opacity:.55;transition:.15s}
+.sk path:hover{opacity:.9}
+.sk text{fill:var(--mut);font:11.5px var(--mono)}
+.sk .nd{fill:rgba(10,16,32,.9);stroke:var(--line2)}
+.hm{display:grid;grid-template-columns:repeat(25,1fr);gap:2px;font:10px var(--mono);color:var(--dim)}
+.hm div{aspect-ratio:1;border-radius:3px;display:grid;place-items:center}
+.spark{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+nav .foot{margin-top:auto;font-size:11px;color:var(--dim);padding:10px 12px;font-family:var(--mono);line-height:1.7}
+main{overflow:auto;padding:24px 28px 40px}
+h1{font-size:22px;margin:0 0 4px;font-weight:650;letter-spacing:.2px}
+.sub{color:var(--mut);margin:0 0 20px}
+.grid{display:grid;gap:16px}
+.kpis{grid-template-columns:repeat(6,minmax(0,1fr))}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;backdrop-filter:blur(10px);position:relative;overflow:hidden}
+.panel h3{margin:0 0 12px;font-size:12px;letter-spacing:1.6px;text-transform:uppercase;color:var(--mut);font-weight:600;display:flex;align-items:center;gap:8px}
+.kpi .v{font-size:28px;font-weight:700;font-family:var(--mono);letter-spacing:-.5px}
+.kpi .l{color:var(--mut);font-size:12px;margin-top:2px}
+.kpi:after{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--acc,var(--cyan));opacity:.8;box-shadow:0 0 14px var(--acc,var(--cyan))}
+.two{grid-template-columns:1.25fr 1fr}
+.feed{font-family:var(--mono);font-size:12.5px;height:440px;overflow:auto;display:flex;flex-direction:column;gap:2px}
+.ev{display:grid;grid-template-columns:78px 12px 1fr;gap:8px;padding:5px 6px;border-radius:7px;animation:in .35s ease}
+.ev:hover{background:rgba(120,180,255,.05)}
+.ev .t{color:var(--dim)}
+.ev .b{width:8px;height:8px;border-radius:2px;margin-top:5px;background:var(--c,var(--mut));box-shadow:0 0 8px var(--c,transparent)}
+.ev .m{color:var(--txt);word-break:break-word}
+.ev .m i{font-style:normal;color:var(--c,var(--mut))}
+.ev .m .w{color:var(--dim);cursor:pointer}
+.ev .m .w:hover{color:var(--cyan)}
+@keyframes in{from{opacity:0;transform:translateY(-4px)}}
+.wfl{display:flex;flex-direction:column;gap:8px;max-height:440px;overflow:auto}
+.wf{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:rgba(6,10,20,.5);cursor:pointer;transition:.15s}
+.wf:hover{border-color:var(--line2);transform:translateX(2px)}
+.wf .s{font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wf .meta{grid-column:1/3;color:var(--dim);font-family:var(--mono);font-size:11.5px}
+.st{font-family:var(--mono);font-size:11px;padding:2px 9px;border-radius:999px;border:1px solid currentColor;text-transform:uppercase;letter-spacing:.8px;white-space:nowrap}
+.st.completed{color:var(--grn)} .st.escalated{color:var(--amb)} .st.failed{color:var(--red)}
+.st.running,.st.queued{color:var(--cyan)} .st.awaiting_approval{color:var(--pink)}
+.st.running:before{content:"● ";animation:pulse 1s infinite}
+.btn{border:1px solid var(--line2);background:rgba(20,30,55,.7);padding:9px 15px;border-radius:11px;font-weight:600;transition:.15s}
+.btn:hover{border-color:var(--cyan);box-shadow:0 0 16px rgba(62,230,255,.18)}
+.btn.pri{background:linear-gradient(135deg,rgba(62,230,255,.85),rgba(155,123,255,.85));color:#03060c;border:0}
+.btn.pri:hover{filter:brightness(1.1);box-shadow:0 0 22px rgba(62,230,255,.35)}
+.btn.ok{background:rgba(52,224,161,.15);border-color:rgba(52,224,161,.5);color:var(--grn)}
+.btn.no{background:rgba(255,77,109,.12);border-color:rgba(255,77,109,.5);color:var(--red)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.graph svg{width:100%;height:auto;display:block}
+.node rect{fill:rgba(10,16,32,.9);stroke:var(--line2);stroke-width:1.2;transition:.35s}
+.node text{fill:var(--mut);font:600 12px Inter,system-ui,sans-serif;text-anchor:middle;dominant-baseline:middle;transition:.35s}
+.node .sm{font:500 9.5px var(--mono);fill:var(--dim)}
+.node.v rect{stroke:rgba(62,230,255,.55);fill:rgba(62,230,255,.07)}
+.node.v text{fill:var(--txt)}
+.node.a rect{stroke:var(--cyan);stroke-width:2;filter:url(#glow);animation:breathe 1.4s ease-in-out infinite}
+.node.a text{fill:#fff}
+.node.deny rect{stroke:var(--amb)} .node.fail rect{stroke:var(--red);fill:rgba(255,77,109,.1)}
+.node.crash rect{stroke:var(--org);fill:rgba(255,138,61,.12)}
+.node.good rect{stroke:var(--grn);fill:rgba(52,224,161,.12);filter:url(#glowg)}
+.node.esc rect{stroke:var(--amb);fill:rgba(255,192,77,.1)}
+.node.wait rect{stroke:var(--pink);fill:rgba(255,111,216,.1);animation:breathe 1.1s infinite}
+@keyframes breathe{50%{stroke-opacity:.35}}
+.edge{fill:none;stroke:rgba(120,180,255,.16);stroke-width:1.6}
+.edge.lit{stroke:var(--cyan);stroke-opacity:.7;stroke-dasharray:6 6;animation:flow .9s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-12}}
+.elbl{fill:var(--dim);font:500 10px var(--mono);text-anchor:middle}
+.tl{display:flex;flex-direction:column;gap:0;max-height:520px;overflow:auto;font-size:13px}
+.tli{display:grid;grid-template-columns:18px 1fr;gap:10px;position:relative;padding:0 0 12px}
+.tli:before{content:"";position:absolute;left:8px;top:16px;bottom:0;width:1px;background:var(--line)}
+.tli .k{width:12px;height:12px;border-radius:50%;margin:4px 0 0 2px;background:var(--bg);border:2px solid var(--c,var(--mut));box-shadow:0 0 8px var(--c,transparent)}
+.tli .h{display:flex;gap:8px;align-items:baseline}
+.tli .h b{font-weight:600;color:var(--c,var(--txt))}
+.tli .h span{color:var(--dim);font-family:var(--mono);font-size:11px}
+.tli .d{color:var(--mut);margin-top:2px;word-break:break-word}
+details summary{cursor:pointer;color:var(--dim);font-size:11px;font-family:var(--mono);margin-top:3px}
+pre{font-family:var(--mono);font-size:11.5px;background:rgba(2,4,10,.75);border:1px solid var(--line);padding:10px;border-radius:10px;overflow:auto;max-height:240px;color:#b8c6e4;margin:6px 0 0}
+.ticket{white-space:pre-wrap;background:rgba(2,4,10,.6);border:1px solid var(--line);border-left:3px solid var(--vio);border-radius:10px;padding:12px 14px;color:#c9d4ea}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px}
+.kv div:nth-child(odd){color:var(--mut)}
+.kv div:nth-child(even){font-family:var(--mono)}
+.cards{grid-template-columns:repeat(auto-fill,minmax(270px,1fr))}
+.card{display:flex;flex-direction:column;gap:10px;min-height:170px}
+.card .tt{font-weight:650;font-size:15px}
+.card p{margin:0;color:var(--mut);flex:1}
+.tag{font-family:var(--mono);font-size:10.5px;letter-spacing:1px;text-transform:uppercase;padding:2px 8px;border-radius:6px;border:1px solid var(--org);color:var(--org);width:max-content}
+.ap{border:1px solid var(--line2);border-radius:14px;padding:16px;background:rgba(10,14,30,.6);display:grid;gap:10px}
+.ap.pending{border-color:rgba(255,111,216,.55);box-shadow:0 0 0 1px rgba(255,111,216,.15),0 0 30px rgba(255,111,216,.08)}
+.ap .act{font-family:var(--mono);font-size:15px;color:var(--pink)}
+.chain{display:flex;flex-direction:column;gap:0}
+.blk{display:grid;grid-template-columns:40px 1fr;gap:12px;align-items:stretch}
+.blk .rail{display:flex;flex-direction:column;align-items:center}
+.blk .rail .n{width:30px;height:30px;border-radius:8px;border:1px solid var(--line2);display:grid;place-items:center;font:600 11px var(--mono);color:var(--mut);background:rgba(8,12,24,.8)}
+.blk .rail .ln{flex:1;width:2px;background:linear-gradient(var(--cyan),transparent);opacity:.35;min-height:14px}
+.blk .body{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;background:rgba(6,10,20,.55)}
+.blk .hash{font:11px var(--mono);color:var(--dim);margin-top:4px}
+.blk .hash b{color:var(--cyan);font-weight:500}
+.blk.ok .rail .n{border-color:var(--grn);color:var(--grn)}
+.blk.bad .rail .n{border-color:var(--red);color:var(--red)}
+.verdict{font:600 13px var(--mono);padding:8px 12px;border-radius:10px;display:inline-block}
+.verdict.ok{color:var(--grn);background:rgba(52,224,161,.1);border:1px solid rgba(52,224,161,.4)}
+.verdict.bad{color:var(--red);background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.4)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--mut);font-weight:600;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line2);font-size:11px;letter-spacing:1.2px;text-transform:uppercase}
+td{padding:9px 10px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12.5px}
+tr.click{cursor:pointer} tr.click:hover td{background:rgba(120,180,255,.04)}
+.big{font:700 44px var(--mono);letter-spacing:-1px}
+.empty{color:var(--dim);text-align:center;padding:40px 10px}
+.toast{position:fixed;right:22px;bottom:22px;z-index:9;display:flex;flex-direction:column;gap:8px}
+.toast div{background:rgba(12,18,36,.95);border:1px solid var(--line2);border-left:3px solid var(--c,var(--cyan));padding:11px 15px;border-radius:11px;min-width:260px;max-width:380px;animation:in .3s;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.login{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(2,4,9,.86);backdrop-filter:blur(8px)}
+.login .box{width:min(460px,92vw);display:grid;gap:14px}
+.login code{font-family:var(--mono);color:var(--cyan);font-size:12px}
+.hidden{display:none!important}
+.mono{font-family:var(--mono)}
+::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:rgba(120,180,255,.15);border-radius:9px}
+@media (max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr)}.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo"><div class="orb"></div>ResolveOS<small>Mission Control</small></div>
+    <div class="hspace"></div>
+    <span class="chip" id="modeChip" title="autonomy mode" style="cursor:pointer" onclick="go('aut')">mode: n/a</span>
+    <span class="chip" id="modelChip">model: n/a</span>
+    <span class="chip"><span class="dot" id="connDot"></span><span id="connTxt">offline</span></span>
+    <button class="chip" id="whoBtn" title="Change API key">key</button>
+  </header>
+  <div class="alertbar" id="alertBar"></div>
+  <nav id="nav">
+    <button data-v="ops" class="on"><span class="ic">◉</span>Mission Control</button>
+    <button data-v="wfs"><span class="ic">≋</span>Workflows</button>
+    <button data-v="aps"><span class="ic">✓</span>Approvals<span class="badge" id="apBadge">0</span></button>
+    <button data-v="inb"><span class="ic">✉</span>Reply Inbox<span class="badge" id="rpBadge">0</span></button>
+    <div class="ngrp">Visual</div>
+    <button data-v="top"><span class="ic">◈</span>Live Graph</button>
+    <button data-v="gal"><span class="ic">✦</span>Galaxy</button>
+    <button data-v="ana"><span class="ic">∿</span>Analytics</button>
+    <div class="ngrp">Control</div>
+    <button data-v="pol"><span class="ic">§</span>Policies &amp; What-if</button>
+    <button data-v="aut"><span class="ic">◐</span>Autonomy</button>
+    <button data-v="con"><span class="ic">⇄</span>Connectors</button>
+    <button data-v="kb"><span class="ic">❏</span>Knowledge</button>
+    <div class="ngrp">Insight</div>
+    <button data-v="roi"><span class="ic">$</span>ROI &amp; Costs</button>
+    <button data-v="aud"><span class="ic">⛓</span>Audit Chain</button>
+    <button data-v="eva"><span class="ic">∑</span>Evaluation</button>
+    <button data-v="lab"><span class="ic">⚗</span>Demo Lab</button>
+    <button data-v="set"><span class="ic">⚙</span>Settings</button>
+    <div class="foot" id="footInfo">LangGraph · FastAPI<br>PostgreSQL · vLLM</div>
+  </nav>
+  <main id="main"></main>
+</div>
+<div class="toast" id="toast"></div>
+
+<div class="login hidden" id="login">
+  <div class="panel box">
+    <div class="logo"><div class="orb"></div>ResolveOS</div>
+    <div id="lgPw" class="grid" style="gap:10px">
+      <div style="color:var(--mut)">Sign in to your organization</div>
+      <input id="emIn" placeholder="email" autocomplete="username">
+      <input id="pwIn" type="password" placeholder="password" autocomplete="current-password">
+      <div class="row"><button class="btn pri" id="pwGo">Sign in</button><a style="color:var(--dim);cursor:pointer;font-size:12px" onclick="lgMode('key')">use an API key instead</a></div>
+      <div style="color:var(--dim);font-size:12px">First login is in <code>.env.keys</code> (<code>grep "UI login" .env.keys</code>).</div>
+    </div>
+    <div id="lgKey" class="grid hidden" style="gap:10px">
+      <div style="color:var(--mut)">Paste the <b>admin</b> API key. On the server:<br><code>grep ADMIN .env.keys</code></div>
+      <input id="keyIn" placeholder="rk_admin_..." autocomplete="off">
+      <div class="row"><button class="btn pri" id="keyGo">Connect</button><a style="color:var(--dim);cursor:pointer;font-size:12px" onclick="lgMode('pw')">use email &amp; password</a></div>
+    </div>
+    <span id="keyErr" style="color:var(--red)"></span>
+  </div>
+</div>
+
+<script>
+"use strict";
+const BASE = location.pathname.replace(/\/ui\/?$/, "/").replace(/[^/]*$/, "");
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const store = {get(k){try{return localStorage.getItem(k)}catch(e){return null}}, set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+let KEY = store.get("resolveos_key") || "";
+const S = {view:"ops", events:[], lastId:0, stats:null, wfs:[], detail:null, detailId:null, approvals:[], demos:[], auditWf:null, mode:"off"};
+
+async function api(path, opts={}) {
+  const r = await fetch(BASE + path, {...opts, headers:{"Authorization":"Bearer " + KEY, "X-Api-Key": KEY, "Content-Type":"application/json", ...(opts.headers||{})}});
+  let body = {}; try { body = await r.json(); } catch(e) {}
+  if (!r.ok) { const e = new Error("HTTP " + r.status); e.status = r.status; e.body = body; throw e; }
+  return body;
+}
+function toast(msg, c="var(--cyan)") {
+  const d = document.createElement("div"); d.style.setProperty("--c", c); d.innerHTML = msg;
+  const tc = $("#toast"); tc.appendChild(d); while (tc.children.length > 4) tc.firstChild.remove(); setTimeout(() => d.remove(), 4800);
+}
+const fmtT = iso => (iso||"").slice(11,19);
+const ago = iso => { if(!iso) return ""; const s = (Date.now() - Date.parse(iso))/1000; return s<60? Math.floor(s)+"s ago" : s<3600? Math.floor(s/60)+"m ago" : Math.floor(s/3600)+"h ago"; };
+const money = x => "$" + Number(x||0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
+const short = (h,n=10) => (h||"").slice(0,n);
+const jsonp = p => typeof p === "string" ? (()=>{try{return JSON.parse(p)}catch(e){return {raw:p}}})() : (p||{});
+function argsStr(a){ return Object.entries(a||{}).map(([k,v])=>`${k}=${typeof v==="string"&&v.length>40? v.slice(0,40)+"…":v}`).join(", "); }
+
+/* ------------------------- event semantics ------------------------- */
+const C = {agent:"var(--vio)", policy:"var(--amb)", approval:"var(--pink)", tool:"var(--cyan)", good:"var(--grn)", bad:"var(--red)", chaos:"var(--org)", sys:"var(--mut)"};
+function describe(ev) {
+  const e = ev.event, p = jsonp(ev.payload);
+  if (e === "workflow.submitted") return [C.sys, "Ticket received", p.subject || ""];
+  if (e === "workflow.run_started") return [C.sys, p.mode === "resume" ? "Resumed from checkpoint" : "Worker picked up", `${p.owner||""} · attempt ${p.attempt||1}`];
+  if (e === "llm.step") { const t = (p.tool_calls||[])[0]; return [C.agent, `Agent step ${p.step}`, t ? `→ ${t.name}(${argsStr(t.args)})  ·  ${p.latency_s}s` : `“${(p.text||"").slice(0,90)}”`]; }
+  if (e === "policy.checked") return [p.effect==="ALLOW"?C.good:p.effect==="DENY"?C.bad:C.approval, `Policy ${p.effect}`, `${p.action} · ${p.rule}`];
+  if (e === "gate.denied") return [C.policy, "Blocked before execution", `${p.rule}: ${p.reason}`];
+  if (e === "approval.requested") return [C.approval, "Human approval requested", `${p.action}(${argsStr(p.args)})`];
+  if (e === "workflow.parked_for_approval") return [C.approval, "Paused, thread released", "waiting for a human decision"];
+  if (e === "approval.decided") return [p.decision==="approved"?C.good:C.bad, `Approval ${p.decision}`, `by ${ev.actor}${p.comment? " · "+p.comment:""}`];
+  if (e === "approval.expired") return [C.bad, "Approval expired", ""];
+  if (e === "tool.executed") return [p.status<400?C.tool:C.bad, `Tool ${p.tool}`, `HTTP ${p.status} · ${p.attempts} attempt${p.attempts>1?"s":""}${p.replayed?" · idempotent replay":""}${p.unavailable?" · unavailable":""}`];
+  if (e.endsWith(".committed")) return [C.good, `Committed ${e.replace(".committed","")}`, p.approval_id ? `approval ${p.approval_id}` : (p.policy||{}).rule || ""];
+  if (e.endsWith(".replayed")) return [C.tool, "Duplicate prevented", `${e.replace(".replayed","")} replayed from idempotency store`];
+  if (e.endsWith(".blocked")) return [C.bad, "Server blocked action", `${p.error||""} ${p.rule||""}`];
+  if (e === "chaos.crash") return [C.chaos, "⚡ Worker crashed", `at ${p.point}`];
+  if (e.startsWith("chaos.")) return [C.chaos, "⚡ Fault injected", e.replace("chaos.","")];
+  if (e === "recovery.attempt") return [C.chaos, "Recovery attempt", `${p.tool} · #${p.attempt}`];
+  if (e === "workflow.requeued_after_error") return [C.chaos, "Requeued after error", (p.error||"").slice(0,90)];
+  if (e === "workflow.auto_escalated") return [C.policy, "Auto-escalated", p.reason||""];
+  if (e === "workflow.completed") return [C.good, "Workflow completed", ((p.result||{}).summary||"").slice(0,120)];
+  if (e === "workflow.escalated") return [C.policy, "Escalated to human", ((p.result||{}).summary||"").slice(0,120)];
+  if (e === "workflow.failed") return [C.bad, "Workflow failed", p.error||""];
+  if (e === "guardrail.injection_detected") return [C.bad, "🛡 Prompt injection detected", `score ${p.score} · actions locked to human approval`];
+  if (e === "guardrail.pii_redacted") return [C.policy, "🛡 PII redacted", (p.types||[]).join(", ")];
+  if (e === "reply.drafted") return [C.tool, "Reply drafted", `${p.model}${p.auto_send?" · auto-send":" · waiting in inbox"}`];
+  if (e === "reply.sent") return [C.good, "Reply sent", `${p.channel} · ${p.delivery}`];
+  if (e === "eval.case_captured") return [C.vio||C.agent, "Regression test captured", p.reason||""];
+  if (e === "connector.read") return [C.tool, `Connector read`, `${p.connector}.${p.operation} · HTTP ${p.status}`];
+  if (e.startsWith("auth.")) return [C.bad, e, p.scope||""];
+  return [C.sys, e, ""];
+}
+
+/* ------------------------- data loading ------------------------- */
+let refreshT = null;
+function scheduleRefresh() { clearTimeout(refreshT); refreshT = setTimeout(refreshAll, 450); }
+async function refreshAll() {
+  try {
+    const [st, wf, ap] = await Promise.all([api("v1/console/stats"), api("v1/console/workflows?limit=80"), api("v1/console/approvals")]);
+    S.stats = st; S.wfs = wf.workflows; S.approvals = ap.approvals;
+    $("#modelChip").textContent = `model: ${st.model}${st.llm_mode==="fake"?" (scripted)":""}`;
+    const n = st.pending_approvals; const b = $("#apBadge"); b.textContent = n; b.classList.toggle("show", n>0);
+    const rb = $("#rpBadge"); rb.textContent = st.drafts; rb.classList.toggle("show", st.drafts>0);
+    $("#modeChip").textContent = "mode: " + st.autonomy_mode;
+    if (st.alerts) { api("v1/alerts").then(a => { const bar = $("#alertBar"); bar.innerHTML = "⚠ " + a.alerts.map(x => esc(x.message)).join("  ·  "); bar.classList.add("show"); }); } else $("#alertBar").classList.remove("show");
+    if (S.detailId) { S.detail = await api("v1/console/workflows/" + S.detailId); }
+    render(true);
+  } catch(e) { if (e.status === 401) showLogin("Key rejected"); }
+}
+function onEvent(ev) {
+  if (ev.id <= S.lastId) return;
+  S.lastId = ev.id; S.events.push(ev); if (S.events.length > 400) S.events.shift();
+  if (S.view === "ops") prependFeed(ev);
+  if (S.view === "gal" && window.galaxyPulse) { const c = ev.event === "gate.denied" ? "#ff4d6d" : ev.event.startsWith("chaos.") ? "#ff8a3d" : ev.event.startsWith("guardrail.") ? "#ff6fd8" : "#3ee6ff"; galaxyPulse(c); }
+  if (ev.event === "approval.requested") toast(`<b>Approval needed</b><br><span class="mono" style="color:var(--mut)">${esc(jsonp(ev.payload).action)}</span>`, "var(--pink)");
+  if (ev.event === "chaos.crash") toast(`<b>⚡ Worker crashed</b><br><span style="color:var(--mut)">watching it resume…</span>`, "var(--org)");
+  if (ev.event === "workflow.completed") toast(`<b>Resolved</b> <span class="mono" style="color:var(--mut)">${esc(ev.workflow_id)}</span>`, "var(--grn)");
+  scheduleRefresh();
+}
+
+/* SSE with automatic fallback to polling (some proxies buffer event streams) */
+let es = null, lastBeat = 0, pollT = null;
+function setMode(m) { S.mode = m; $("#connDot").className = "dot " + (m==="live"?"live":m==="poll"?"poll":"off"); $("#connTxt").textContent = m==="live"?"live stream":m==="poll"?"polling":"offline"; }
+function connect() {
+  if (es) es.close();
+  try { es = new EventSource(BASE + "v1/stream?token=" + encodeURIComponent(KEY) + "&after=" + S.lastId); } catch(e) { return startPoll(); }
+  lastBeat = Date.now();
+  es.addEventListener("ping", () => { lastBeat = Date.now(); if (S.mode!=="live") setMode("live"); });
+  es.addEventListener("audit", m => { lastBeat = Date.now(); setMode("live"); onEvent(JSON.parse(m.data)); });
+  es.onerror = () => {};
+}
+setInterval(() => { if (S.mode !== "poll" && KEY && Date.now() - lastBeat > 7000) { if (es) es.close(); startPoll(); } }, 2000);
+function startPoll() {
+  setMode("poll"); clearInterval(pollT);
+  pollT = setInterval(async () => {
+    try { const r = await api("v1/events?after=" + S.lastId + "&limit=300"); r.events.forEach(onEvent); setMode("poll"); }
+    catch(e) { setMode("off"); }
+  }, 900);
+}
+
+/* ------------------------- views ------------------------- */
+function render(soft) {
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("on", b.dataset.v === S.view));
+  const v = S.view, m = $("#main");
+  if (v === "ops") { if (soft && $("#feed")) { renderKpis(); renderWfList("#opsList", S.wfs.slice(0,14)); return; } m.innerHTML = viewOps(); renderKpis(); renderFeed(); renderWfList("#opsList", S.wfs.slice(0,14)); }
+  else if (v === "wfs") { if (S.detailId) m.innerHTML = viewDetail(); else { m.innerHTML = viewWfs(); } }
+  else if (v === "aps") m.innerHTML = viewApprovals();
+  else if (v === "aud") { if (!soft || !$("#chain")) { m.innerHTML = viewAudit(); if (S.auditWf) loadChain(S.auditWf); } }
+  else if (v === "lab") { if (!soft || !$("#labCards")) m.innerHTML = viewLab(); }
+  else if (VIEWS[v]) { if (!soft || !$("#pv_" + v)) { m.innerHTML = `<div id="pv_${v}" class="empty">loading…</div>`; VIEWS[v]().then(h => { if (S.view === v) { m.innerHTML = `<div id="pv_${v}">${h}</div>`; if (v === "gal") galaxyStart(); } }).catch(e => { m.innerHTML = `<div id="pv_${v}" class="panel" style="color:var(--red)">${esc(e.status===403?"This page needs an admin.":JSON.stringify(e.body||e.message))}</div>`; }); } }
+  else if (v === "eva") { if (!soft || !$("#evaBox")) { m.innerHTML = `<h1>Evaluation</h1><p class="sub">Latest run of the 120-scenario harness (ground truth = final database state).</p><div id="evaBox" class="empty">loading…</div>`; loadEval(); } }
+}
+function go(view, wf) { stopAnim(); clearInterval(S.replayT); S.replayT = null; S.replayI = null; S.view = view; S.detailId = wf || null; S.detail = null; render(); if (wf) api("v1/console/workflows/" + wf).then(d => { S.detail = d; if (S.view==="wfs") $("#main").innerHTML = viewDetail(); }); }
+
+function viewOps() {
+  return `<h1>Mission Control</h1><p class="sub">Every agent decision, policy check, approval and side effect, streamed live from the hash-chained audit log.</p>
+  <div class="grid kpis" id="kpis"></div>
+  <div class="grid two" style="margin-top:16px">
+    <div class="panel"><h3><span class="dot live"></span>Live event stream</h3><div class="feed" id="feed"></div></div>
+    <div class="panel"><h3>Recent workflows <span style="flex:1"></span><button class="btn" style="padding:5px 10px;font-size:12px" onclick="go('lab')">⚗ launch demo</button></h3><div class="wfl" id="opsList"></div></div>
+  </div>`;
+}
+function renderKpis() {
+  const s = S.stats; if (!s || !$("#kpis")) return;
+  const k = (v,l,acc) => `<div class="panel kpi" style="--acc:${acc}"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  $("#kpis").innerHTML =
+    k(s.active, "active workflows", "var(--cyan)") +
+    k(s.awaiting_approval, "awaiting human", "var(--pink)") +
+    k((s.workflows.completed||0), `resolved · ${s.workflows.escalated||0} escalated`, "var(--grn)") +
+    k(s.exec_p95_s==null? "—" : s.exec_p95_s + "s", "p95 execution latency", "var(--vio)") +
+    k("$" + Number(s.llm_cost_usd||0).toFixed(3), `LLM spend · ${s.llm_steps} steps`, "var(--amb)") +
+    k(s.guardrail_hits + s.replays + s.resumes, `saves: ${s.guardrail_hits} guardrail · ${s.replays} dup · ${s.resumes} resume`, "var(--org)");
+}
+function evHtml(ev) {
+  const [c, title, det] = describe(ev);
+  return `<div class="ev" style="--c:${c}"><span class="t">${fmtT(ev.ts_iso)}</span><span class="b"></span><span class="m"><i>${esc(title)}</i> ${esc(det)} <span class="w" onclick="go('wfs','${esc(ev.workflow_id)}')">${esc(ev.workflow_id)}</span></span></div>`;
+}
+function renderFeed() { const f = $("#feed"); if (!f) return; f.innerHTML = S.events.slice(-150).reverse().map(evHtml).join("") || `<div class="empty">No events yet. Launch a scenario from the Demo Lab.</div>`; }
+function prependFeed(ev) { const f = $("#feed"); if (!f) return; if (f.querySelector(".empty")) f.innerHTML = ""; f.insertAdjacentHTML("afterbegin", evHtml(ev)); while (f.children.length > 200) f.lastChild.remove(); }
+function wfRow(w) {
+  const lat = w.finished_at ? ((Date.parse(w.finished_at) - Date.parse(w.created_at))/1000).toFixed(1)+"s" : ago(w.created_at);
+  const ch = w.chaos && (w.chaos.crash || w.chaos.api) ? ` · ⚡ ${esc(w.chaos.crash||w.chaos.api)}` : "";
+  return `<div class="wf" onclick="go('wfs','${w.id}')"><div class="s">${esc(w.subject)}</div><span class="st ${w.status}">${w.status.replace("_"," ")}</span>
+    <div class="meta">${w.id} · ${esc(w.customer_id)} · ${lat}${w.resumes? " · resumed×"+w.resumes:""}${ch}</div></div>`;
+}
+function renderWfList(sel, list) { const el = $(sel); if (el) el.innerHTML = list.map(wfRow).join("") || `<div class="empty">No workflows yet.</div>`; }
+
+function viewWfs() {
+  return `<h1>Workflows</h1><p class="sub">${S.wfs.length} most recent. Click one to replay its execution graph.</p>
+  <div class="panel"><table><thead><tr><th>workflow</th><th>subject</th><th>status</th><th>steps</th><th>exec</th><th>resumes</th><th>created</th></tr></thead><tbody>
+  ${S.wfs.map(w => { const r = w.result||{}; const st = r.stats||{}; const lat = w.finished_at ? ((Date.parse(w.finished_at)-Date.parse(w.created_at))/1000).toFixed(1)+"s":"…";
+    return `<tr class="click" onclick="go('wfs','${w.id}')"><td>${w.id}</td><td style="font-family:inherit">${esc(w.subject)}</td><td><span class="st ${w.status}">${w.status.replace("_"," ")}</span></td><td>${r.steps??"·"}</td><td>${lat}</td><td>${w.resumes||0}</td><td>${ago(w.created_at)}</td></tr>`; }).join("")}
+  </tbody></table>${S.wfs.length? "" : `<div class="empty">Nothing yet.</div>`}</div>`;
+}
+
+/* ---- execution graph ---- */
+const NODES = {ticket:[70,130,"Ticket"], agent:[215,130,"Agent · LLM"], gate:[360,130,"Policy gate"], approval:[505,45,"Human approval"], execute:[650,130,"Execute tool"], done:[795,130,"Resolved"], recover:[795,235,"Recover"]};
+const EDGES = [["ticket","agent"],["agent","gate"],["gate","approval"],["approval","execute"],["gate","execute"],["execute","done"],["execute","recover"],["execute","agent","loop"]];
+function graphState(evs, status) {
+  const vis = new Set(["ticket"]), edges = new Set(); let cur = "ticket", flags = {};
+  const step = n => { if (n !== cur) edges.add(cur + ">" + n); vis.add(n); cur = n; };
+  for (const ev of evs) {
+    const e = ev.event, p = jsonp(ev.payload);
+    if (e === "llm.step") step("agent");
+    else if (e === "policy.checked") { if (cur !== "gate") step("gate"); if (p.effect === "DENY") flags.deny = true; }
+    else if (e === "gate.denied") { flags.deny = true; }
+    else if (e === "approval.requested" || e === "workflow.parked_for_approval") { step("approval"); flags.wait = true; }
+    else if (e === "approval.decided") { flags.wait = false; flags.decision = p.decision; }
+    else if (e === "tool.executed" || e.endsWith(".committed")) { if (cur !== "execute") step("execute"); }
+    else if (e === "recovery.attempt") step("recover");
+    else if (e === "chaos.crash") flags.crash = cur;
+    else if (e === "workflow.completed" || e === "workflow.escalated" || e === "workflow.auto_escalated") step("done");
+  }
+  return {vis, edges, cur, flags};
+}
+function graphSvg(evs, status) {
+  const g = graphState(evs, status), W = 112, H = 44;
+  const terminal = ["completed","escalated","failed"].includes(status);
+  const path = ([a,b,kind]) => {
+    const [x1,y1] = NODES[a], [x2,y2] = NODES[b];
+    if (kind === "loop") return `M ${x1} ${y1+H/2} C ${x1-40} ${y1+130}, ${x2+40} ${y2+130}, ${x2} ${y2+H/2}`;
+    const sx = x1 + (x2>x1? W/2 : 0), sy = y1 + (y2<y1? -H/2 : y2>y1 && x2===x1? H/2 : 0);
+    const tx = x2 - (x2>x1? W/2 : 0), ty = y2 + (y2>y1 && x2!==x1? -H/2 : y2<y1? H/2 : y2>y1? -H/2 : 0);
+    return `M ${sx} ${sy} L ${tx} ${ty}`;
+  };
+  const lit = ([a,b]) => g.edges.has(a+">"+b);
+  let s = `<svg viewBox="0 0 870 300"><defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="glowg" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="rgba(120,180,255,.45)"/></marker></defs>`;
+  for (const e of EDGES) s += `<path class="edge ${lit(e)?"lit":""}" d="${path(e)}" marker-end="url(#ar)"/>`;
+  s += `<text class="elbl" x="430" y="268">loop: observe → decide → act</text><text class="elbl" x="358" y="72">REQUIRE_APPROVAL</text><text class="elbl" x="505" y="148">ALLOW</text>`;
+  for (const [id,[x,y,label]] of Object.entries(NODES)) {
+    let cls = g.vis.has(id) ? "v" : "";
+    if (id === g.cur && !terminal) cls += " a";
+    if (id === "gate" && g.flags.deny) cls += " deny";
+    if (id === "approval" && g.flags.wait && status === "awaiting_approval") cls += " wait";
+    if (g.flags.crash === id) cls += " crash";
+    if (id === "done" && terminal) cls += status === "completed" ? " good" : status === "failed" ? " fail" : " esc";
+    let sub = "";
+    if (id === "gate" && g.flags.deny) sub = "DENY seen";
+    if (id === "approval" && g.flags.decision) sub = g.flags.decision;
+    if (id === "approval" && status === "awaiting_approval") sub = "waiting…";
+    if (id === "done" && terminal) sub = status;
+    if (g.flags.crash === id) sub = "⚡ crash here";
+    const lbl = id === "done" && status === "escalated" ? "Escalated" : id === "done" && status === "failed" ? "Failed" : label;
+    s += `<g class="node ${cls}"><rect x="${x-W/2}" y="${y-H/2}" width="${W}" height="${H}" rx="11"/><text x="${x}" y="${y-(sub?5:0)}">${lbl}</text>${sub?`<text class="sm" x="${x}" y="${y+11}">${sub}</text>`:""}</g>`;
+  }
+  return s + "</svg>";
+}
+function viewDetail() {
+  const d = S.detail;
+  if (!d) return `<div class="empty">loading ${esc(S.detailId)}…</div>`;
+  const w = d.workflow, t = d.ticket, r = w.result || {}, st = r.stats || {};
+  const evs = d.events.concat(S.events.filter(e => e.workflow_id === w.id && e.id > (d.events.length? d.events[d.events.length-1].id : 0)));
+  const lat = w.finished_at ? ((Date.parse(w.finished_at)-Date.parse(w.created_at))/1000).toFixed(2)+"s" : "running";
+  const pend = d.approvals.filter(a => a.status === "pending");
+  return `<div class="row" style="margin-bottom:6px"><button class="btn" onclick="go('wfs')">← all workflows</button><span class="st ${w.status}">${w.status.replace("_"," ")}</span><span class="mono" style="color:var(--dim)">${w.id}</span></div>
+  <h1 style="margin-top:12px">${esc(t.subject)}</h1><p class="sub">customer ${esc(t.customer_id)} · ticket ${esc(t.id)} · via ${esc(t.channel)} · wall time ${lat}${w.resumes? ` · resumed ${w.resumes}× from checkpoint`:""}</p>
+  ${(w.flags||{}).injection || ((w.flags||{}).pii||[]).length ? `<div class="row" style="margin:-8px 0 14px">${(w.flags||{}).injection?'<span class="pill red">🛡 prompt injection detected · human approval forced</span>':""}${((w.flags||{}).pii||[]).map(x=>`<span class="pill amb">🛡 ${esc(x)} redacted</span>`).join("")}</div>`:""}
+  ${pend.length? `<div class="panel" style="border-color:rgba(255,111,216,.5);margin-bottom:16px"><h3 style="color:var(--pink)">Waiting for your decision</h3>${pend.map(apCard).join("")}</div>`:""}
+  <div class="panel graph"><h3>Execution graph · Replay Theater <span style="flex:1"></span><span class="mono" style="font-size:11px;letter-spacing:0;text-transform:none;color:var(--dim)">LangGraph · checkpointed in PostgreSQL</span></h3><div id="rpGraph">${(() => { const i = S.replayI === null ? evs.length - 1 : S.replayI; const part = evs.slice(0, i + 1); return graphSvg(part, S.replayI === null ? w.status : replayStatus(part, evs.length)); })()}</div>${evs.length > 1 ? replayHtml(evs) : ""}</div>
+  <div class="grid two" style="margin-top:16px">
+    <div class="panel"><h3>Timeline · ${evs.length} audited events</h3><div class="tl">${evs.map(tlItem).join("")}</div></div>
+    <div class="grid" style="align-content:start">
+      <div class="panel"><h3>Ticket</h3><div class="ticket">${esc(t.body)}</div></div>
+      <div class="panel"><h3>Outcome</h3>${r.summary? `<div class="ticket" style="border-left-color:${w.status==="completed"?"var(--grn)":"var(--amb)"}">${esc(r.summary)}</div>`:`<div style="color:var(--dim)">in progress…</div>`}
+        <div class="kv" style="margin-top:12px"><div>LLM calls</div><div>${st.llm_calls??"·"} (${st.llm_s? Number(st.llm_s).toFixed(2)+"s":"·"})</div><div>tool calls</div><div>${st.tool_calls??"·"}</div><div>retries absorbed</div><div>${st.retries??0}</div><div>idempotent replays</div><div>${st.replays??0}</div><div>approvals</div><div>${d.approvals.length}</div><div>worker attempts</div><div>${w.attempts}</div></div>
+        <div class="row" style="margin-top:14px"><button class="btn" onclick="S.auditWf='${w.id}';go('aud')">⛓ inspect audit chain</button></div></div>
+      ${(d.replies||[]).map(rp => `<div class="panel"><h3>Customer reply · ${rp.status}</h3><div class="ticket" style="border-left-color:var(--cyan)">${esc(rp.final||rp.draft)}</div>${rp.status==="draft"?`<div class="row" style="margin-top:10px"><button class="btn" onclick="go('inb')">review in inbox ▸</button></div>`:""}</div>`).join("")}
+      ${(d.llm_usage||[]).length?`<div class="panel"><h3>Model router</h3><table><thead><tr><th>model</th><th>why</th><th>tokens</th><th>$</th><th>s</th></tr></thead><tbody>${d.llm_usage.map(u=>`<tr><td>${esc(u.model)}</td><td style="font-size:11px">${esc(u.route_reason)}</td><td>${u.input_tokens+u.output_tokens}</td><td>${Number(u.cost_usd).toFixed(5)}</td><td>${Number(u.latency_s||0).toFixed(2)}</td></tr>`).join("")}</tbody></table></div>`:""}
+      ${["completed","escalated"].includes(w.status)?`<div class="panel"><h3>Was this handled correctly?</h3><p style="color:var(--mut);margin:0 0 10px;font-size:13px">Flag mistakes. Each one becomes a regression test that every future model, prompt or policy change must pass.</p>
+        ${(d.committed||[]).map(a=>`<label class="row" style="gap:8px;font-size:13px"><input type="checkbox" class="fbx" style="width:auto" data-a="${encodeURIComponent(JSON.stringify(a))}"> <span class="mono">${esc(a.action)}(${esc(argsStr(a.args))})</span> was wrong</label>`).join("")}
+        <div class="row" style="margin-top:10px"><select id="fbExp"><option value="any">outcome: either</option><option value="resolved">should resolve</option><option value="escalated">should escalate</option></select><input id="fbNote" placeholder="what should have happened?" style="flex:1"><button class="btn" onclick="sendFeedback('${w.id}')">Save test</button></div></div>`:""}
+    </div></div>`;
+}
+function tlItem(ev) {
+  const [c, title, det] = describe(ev);
+  return `<div class="tli" style="--c:${c}"><div class="k"></div><div><div class="h"><b>${esc(title)}</b><span>${fmtT(ev.ts_iso)} · ${esc(ev.actor)}</span></div><div class="d">${esc(det)}</div>
+    <details><summary>payload</summary><pre>${esc(JSON.stringify(jsonp(ev.payload), null, 2))}</pre></details></div></div>`;
+}
+
+/* ---- approvals ---- */
+function apCard(a) {
+  const args = a.args || {};
+  return `<div class="ap ${a.status}"><div class="row"><span class="act">${esc(a.action)}</span><span class="st ${a.status==="pending"?"awaiting_approval":a.status==="approved"?"completed":"failed"}">${a.status}</span><span style="flex:1"></span><span class="mono" style="color:var(--dim);font-size:11px">${a.id} · ${ago(a.created_at)}</span></div>
+    <div class="kv">${Object.entries(args).map(([k,v])=>`<div>${esc(k)}</div><div>${k==="amount"? money(v): esc(v)}</div>`).join("")}<div>policy</div><div>${esc(a.justification)}</div>${a.subject? `<div>ticket</div><div style="font-family:inherit">${esc(a.subject)}</div>`:""}<div>workflow</div><div><a style="color:var(--cyan);cursor:pointer" onclick="go('wfs','${a.workflow_id}')">${a.workflow_id}</a></div>
+    ${a.decided_by? `<div>decided</div><div>${esc(a.decided_by)}${a.comment? " · "+esc(a.comment):""}</div>`:""}</div>
+    ${a.status==="pending"? `<div class="row"><input id="cm_${a.id}" placeholder="comment (optional)" style="flex:1;min-width:180px"><button class="btn ok" onclick="decide('${a.id}','approve')">Approve</button><button class="btn no" onclick="decide('${a.id}','reject')">Reject</button></div>`:""}</div>`;
+}
+function viewApprovals() {
+  const p = S.approvals.filter(a => a.status === "pending"), done = S.approvals.filter(a => a.status !== "pending");
+  return `<h1>Approvals</h1><p class="sub">Each approval is bound to the exact action and arguments (sha256), single-use, and can't be approved by the agent that requested it.</p>
+  <div class="grid">${p.map(apCard).join("") || `<div class="panel empty">No pending approvals. Launch “High-value return” in the Demo Lab.</div>`}</div>
+  ${done.length? `<h3 style="margin:28px 0 12px;color:var(--mut);font-size:12px;letter-spacing:1.6px;text-transform:uppercase">History</h3><div class="grid">${done.slice(0,20).map(apCard).join("")}</div>`:""}`;
+}
+async function decide(id, decision) {
+  const c = ($("#cm_" + id) || {}).value || "";
+  try { await api(`v1/approvals/${id}/decision`, {method:"POST", body: JSON.stringify({decision, comment: c})});
+    toast(`Approval <b>${decision === "approve" ? "granted" : "rejected"}</b>; workflow resuming`, decision==="approve"?"var(--grn)":"var(--red)"); refreshAll(); }
+  catch(e) { toast("Decision failed: " + esc(JSON.stringify(e.body.detail||e.body)), "var(--red)"); }
+}
+
+/* ---- audit chain ---- */
+function viewAudit() {
+  const opts = S.wfs.map(w => `<option value="${w.id}" ${w.id===S.auditWf?"selected":""}>${w.id} · ${esc(w.subject).slice(0,60)}</option>`).join("");
+  return `<h1>Audit Chain</h1><p class="sub">Append-only (enforced by a database trigger) and hash-chained: every event stores sha256(prev_hash ‖ event). Editing any past row breaks verification.</p>
+  <div class="panel"><div class="row"><select id="audSel" style="flex:1;min-width:280px;background:rgba(4,8,18,.7);color:var(--txt);border:1px solid var(--line2);border-radius:10px;padding:10px" onchange="S.auditWf=this.value;loadChain(this.value)"><option value="">choose a workflow…</option>${opts}</select>
+  <button class="btn pri" onclick="verify()">Verify chain</button><span id="verdict"></span></div></div>
+  <div class="panel" style="margin-top:16px"><div class="chain" id="chain"><div class="empty">Select a workflow.</div></div></div>`;
+}
+async function loadChain(wf) {
+  if (!wf) return; const r = await api(`v1/workflows/${wf}/audit`);
+  $("#chain").innerHTML = r.events.map((e,i) => { const [c,title,det] = describe({...e, workflow_id: wf});
+    return `<div class="blk" id="blk${e.id}"><div class="rail"><div class="n">${i+1}</div>${i<r.events.length-1?'<div class="ln"></div>':""}</div><div class="body"><div class="row" style="gap:8px"><b style="color:${c}">${esc(title)}</b><span class="mono" style="color:var(--dim);font-size:11px">${esc(e.event)} · ${esc(e.actor)} · ${fmtT(e.ts_iso)}</span></div>
+      <div style="color:var(--mut);font-size:12.5px">${esc(det)}</div><div class="hash">prev <b>${short(e.prev_hash,16)}</b> → hash <b>${short(e.hash,16)}</b></div></div></div>`; }).join("");
+  $("#verdict").innerHTML = "";
+}
+async function verify() {
+  if (!S.auditWf) return toast("Pick a workflow first");
+  const r = await api(`v1/workflows/${S.auditWf}/audit/verify`);
+  document.querySelectorAll(".blk").forEach(b => b.classList.add(r.valid ? "ok" : "bad"));
+  $("#verdict").innerHTML = r.valid ? `<span class="verdict ok">✓ chain intact · ${r.events} events · head ${short(r.head,12)}</span>` : `<span class="verdict bad">✗ tampering detected at event ${r.broken_at}</span>`;
+}
+
+/* ---- demo lab ---- */
+function viewLab() {
+  return `<h1>Demo Lab</h1><p class="sub">Launch a real ticket through the real stack (LLM → policy → approval → REST → Postgres). Each launch seeds fresh customer data.</p>
+  <div class="grid cards" id="labCards">${S.demos.map(d => `<div class="panel card">${d.chaos?'<span class="tag">fault injection</span>':""}<div class="tt">${esc(d.title)}</div><p>${esc(d.desc)}</p><button class="btn pri" onclick="launch('${d.id}',this)">Launch ▸</button></div>`).join("")}</div>
+  <div class="panel" style="margin-top:20px"><h3>Write your own ticket</h3><p style="color:var(--mut);margin:0 0 12px">Use a customer/order that exists (e.g. one created by a launch above: C4xx / O4xxA).</p>
+    <div class="grid" style="grid-template-columns:180px 1fr;gap:10px"><input id="cuIn" placeholder="customer id"><input id="sbIn" placeholder="subject"></div>
+    <textarea id="bdIn" rows="3" style="margin-top:10px" placeholder="e.g. Please refund $40 for order O512A, it arrived broken."></textarea>
+    <div class="row" style="margin-top:10px"><button class="btn pri" onclick="custom()">Submit ticket ▸</button></div></div>`;
+}
+async function launch(id, btn) {
+  btn.disabled = true; btn.textContent = "launching…";
+  try { const r = await api("v1/demo/launch", {method:"POST", body: JSON.stringify({scenario:id})});
+    toast(`Launched <b>${esc(r.subject)}</b>`, "var(--cyan)"); go("wfs", r.workflow_id); }
+  catch(e) { toast("Launch failed: " + esc(JSON.stringify(e.body.detail||e.body)), "var(--red)"); btn.disabled = false; btn.textContent = "Launch ▸"; }
+}
+async function custom() {
+  const body = {customer_id: $("#cuIn").value.trim(), subject: $("#sbIn").value.trim() || "Customer request", body: $("#bdIn").value.trim()};
+  if (!body.customer_id || !body.body) return toast("Customer id and ticket text are required", "var(--amb)");
+  try { const r = await api("v1/workflows", {method:"POST", body: JSON.stringify(body)}); go("wfs", r.workflow_id); }
+  catch(e) { toast("Submit failed: " + esc(JSON.stringify(e.body.detail||e.body)), "var(--red)"); }
+}
+
+/* ---- evaluation ---- */
+async function loadReg() {
+  try { const r = await api("v1/eval/cases"); const lr = r.last_run;
+    $("#regBox").innerHTML = `<h3>Self-growing regression suite</h3><p style="color:var(--mut);margin:0 0 10px;font-size:13px">Every human rejection or flagged mistake becomes a test. Replay with <span class="mono">python -m resolveos.eval.regression --yes</span>.</p>
+      <div class="kv"><div>captured cases</div><div>${r.cases.length}</div><div>last replay</div><div>${lr? `${lr.passed}/${lr.cases} passed`:"never"}</div></div>
+      ${r.cases.slice(0,8).map(x=>`<div style="margin-top:8px;font-size:12.5px"><span class="mono" style="color:var(--vio)">${x.id}</span> <span style="color:var(--mut)">${esc(x.reason)}</span></div>`).join("")}`; } catch(e) {}
+}
+async function loadEval() { setTimeout(loadReg, 300);
+  let d; try { d = await api("v1/eval/latest"); } catch(e) { $("#evaBox").innerHTML = `No results yet. Run <span class="mono">bash scripts/04_eval.sh</span>.`; return; }
+  const o = d.summary.overall, x = d.summary.excluding_crash_resume, t = d.summary.totals, m = d.meta;
+  const fails = d.scenarios.filter(s => !s.success);
+  $("#evaBox").outerHTML = `<div id="evaBox">
+   ${m.llm_mode==="fake"? `<div class="panel" style="border-color:var(--amb);color:var(--amb);margin-bottom:16px">Smoke test with the scripted stand-in agent. Not a model evaluation.</div>`:""}
+   <div class="grid kpis" style="grid-template-columns:repeat(4,1fr)">
+    <div class="panel kpi" style="--acc:var(--grn)"><div class="big">${(o.success_rate*100).toFixed(1)}%</div><div class="l">task success · ${o.success}/${o.n}</div></div>
+    <div class="panel kpi" style="--acc:var(--vio)"><div class="big">${o.exec_p95_s.toFixed(1)}s</div><div class="l">p95 execution · p50 ${o.exec_p50_s.toFixed(1)}s</div></div>
+    <div class="panel kpi" style="--acc:var(--cyan)"><div class="big">${(d.summary.audit_chain_valid_rate*100).toFixed(0)}%</div><div class="l">audit chains valid</div></div>
+    <div class="panel kpi" style="--acc:var(--org)"><div class="big">${t.resumes}</div><div class="l">crash resumes · ${t.replays} replays</div></div></div>
+   <p class="sub" style="margin-top:14px">model <span class="mono">${esc(m.model)}</span> · concurrency ${m.concurrency} · ${m.worker_threads} worker threads · seed ${m.seed} · ${esc(d.file)} · p95 without crash-resume ${x.exec_p95_s.toFixed(1)}s</p>
+   <div class="grid two"><div class="panel"><h3>By category</h3><table><thead><tr><th>category</th><th>n</th><th>success</th><th>p50</th><th>p95</th></tr></thead><tbody>
+     ${Object.entries(d.summary.by_category).map(([c,b]) => `<tr><td>${c}</td><td>${b.n}</td><td style="color:${b.success_rate===1?"var(--grn)":"var(--amb)"}">${(b.success_rate*100).toFixed(0)}%</td><td>${b.exec_p50_s.toFixed(1)}s</td><td>${b.exec_p95_s.toFixed(1)}s</td></tr>`).join("")}</tbody></table></div>
+    <div class="grid" style="align-content:start"><div class="panel"><h3>Reliability</h3><div class="kv"><div>LLM calls</div><div>${t.llm_calls} (${d.summary.mean_llm_calls.toFixed(1)}/ticket)</div><div>tool calls</div><div>${t.tool_calls}</div><div>retries absorbed</div><div>${t.tool_retries}</div><div>approvals</div><div>${t.approvals}</div><div>policy denials</div><div>${t.gate_denials}</div><div>auto-escalations</div><div>${t.auto_escalated}</div></div></div>
+     <div class="panel" id="regBox"><h3>Self-growing regression suite</h3><div style="color:var(--dim)">loading…</div></div>
+     <div class="panel"><h3>Failures (${fails.length})</h3>${fails.map(f => `<div style="margin-bottom:8px"><span class="mono" style="color:var(--amb)">${f.sid}</span> <span class="mono" style="color:var(--dim)">${f.category}</span><div style="color:var(--mut);font-size:12.5px">${esc((f.reasons||[]).join("; "))}</div></div>`).join("") || `<span style="color:var(--grn)">none</span>`}</div></div></div></div>`;
+}
+
+/* ========================= product pages ========================= */
+const post = (path, body, method="POST") => api(path, {method, body: JSON.stringify(body||{})});
+const pct = x => (x*100).toFixed(0) + "%";
+const H = (t, sub) => `<h1>${t}</h1><p class="sub">${sub}</p>`;
+async function rerender() { if (VIEWS[S.view]) { const h = await VIEWS[S.view](); const m = $("#main"); if (S.view && $("#pv_"+S.view)) m.innerHTML = `<div id="pv_${S.view}">${h}</div>`; } }
+const VIEWS = {};
+
+/* ---- reply inbox ---- */
+VIEWS.inb = async () => {
+  const r = await api("v1/replies?status=draft"), done = await api("v1/replies?status=sent");
+  const card = x => `<div class="ap ${x.status==="draft"?"pending":""}"><div class="row"><b>${esc(x.subject)}</b><span class="pill cyn">${esc(x.channel)}</span>${x.to_addr?`<span class="mono" style="color:var(--dim);font-size:12px">→ ${esc(x.to_addr)}</span>`:""}<span style="flex:1"></span><span class="st ${x.workflow_status}">${x.workflow_status}</span></div>
+    <div class="ticket" style="border-left-color:var(--dim);font-size:12.5px;color:var(--mut)">${esc((x.ticket_body||"").slice(0,400))}</div>
+    ${x.status==="draft" ? `<textarea id="rp_${x.id}" rows="6">${esc(x.draft)}</textarea>
+    <div class="row"><span class="mono" style="color:var(--dim);font-size:11px">drafted by ${esc(x.model)} · ${ago(x.created_at)}${(x.citations||[]).length?` · cites ${x.citations.map(c=>"kb:"+c).join(", ")}`:""}</span><span style="flex:1"></span>
+    <button class="btn" onclick="go('wfs','${x.workflow_id}')">open workflow</button><button class="btn no" onclick="discardReply('${x.id}')">Discard</button><button class="btn ok" onclick="sendReply('${x.id}')">Send ▸</button></div>`
+    : `<div class="ticket" style="border-left-color:var(--grn)">${esc(x.final)}</div><div class="mono" style="color:var(--dim);font-size:11px">sent by ${esc(x.sent_by)} · ${ago(x.sent_at)}</div>`}</div>`;
+  return H("Reply Inbox", "Customer replies drafted from what actually happened, in your brand tone, with knowledge-base citations. Edit, then send.") +
+    `<div class="grid">${r.replies.map(card).join("") || `<div class="panel empty">No drafts waiting. Replies are drafted when a workflow finishes.</div>`}</div>
+     ${done.replies.length?`<h3 style="margin:28px 0 12px;color:var(--mut);font-size:12px;letter-spacing:1.6px;text-transform:uppercase">Sent</h3><div class="grid">${done.replies.slice(0,15).map(card).join("")}</div>`:""}`;
+};
+async function sendReply(id) { try { const r = await post(`v1/replies/${id}/send`, {text: $("#rp_"+id).value}); toast(`Reply sent · ${r.delivery}`, "var(--grn)"); rerender(); refreshAll(); } catch(e) { toast("Send failed", "var(--red)"); } }
+async function discardReply(id) { await post(`v1/replies/${id}/discard`); rerender(); refreshAll(); }
+
+/* ---- policies + what-if ---- */
+let draftRule = null;
+VIEWS.pol = async () => {
+  const r = await api("v1/policies/rules");
+  const row = x => `<tr><td style="font-family:inherit"><b>${esc(x.name)}</b><div style="color:var(--dim);font-size:12px">${esc(x.nl_text)}</div></td><td>${esc(x.rule.action)}</td>
+    <td>${(x.rule.when||[]).map(c=>`${esc(c.field)} ${esc(c.op)} ${esc(c.value)}`).join(" ∧ ")||"always"}</td><td><span class="pill ${x.rule.effect==="DENY"?"red":x.rule.effect==="ALLOW"?"grn":"pnk"}">${x.rule.effect}</span></td>
+    <td><button class="btn" style="padding:5px 10px" onclick="toggleRule('${x.id}',${!x.enabled})">${x.enabled?"disable":"enable"}</button> <button class="btn no" style="padding:5px 10px" onclick="delRule('${x.id}')">✕</button></td></tr>`;
+  return H("Policies & What-if", "Write a rule in plain English. It compiles to an auditable rule and is replayed against the last 30 days of real agent actions before you save it. Custom rules can tighten built-in safety rules, never loosen them.") +
+  `<div class="panel"><h3>New rule</h3><div class="row"><input id="nlIn" style="flex:1;min-width:300px" placeholder='e.g. "Refunds over $250 need a manager" or "Never issue store credit above $100"'><button class="btn pri" onclick="compileRule()">Compile &amp; simulate ▸</button></div>
+   <div id="ruleOut" style="margin-top:14px"></div></div>
+   <div class="panel" style="margin-top:16px"><h3>Active rules (${r.rules.length})</h3>${r.rules.length?`<table><thead><tr><th>rule</th><th>action</th><th>when</th><th>effect</th><th></th></tr></thead><tbody>${r.rules.map(row).join("")}</tbody></table>`:`<div class="empty">No custom rules. Built-in policy applies.</div>`}</div>`;
+};
+async function compileRule() {
+  const text = $("#nlIn").value.trim(); if (!text) return;
+  $("#ruleOut").innerHTML = `<span style="color:var(--dim)">compiling…</span>`;
+  try { const r = await post("v1/policies/compile", {text}); draftRule = {...r.rule, nl: text};
+    const im = r.impact, mx = Object.entries(im.matrix).map(([k,v]) => `<span class="pill ${k.split("->")[0]===k.split("->")[1]?"cyn":"amb"}">${k} × ${v}</span>`).join(" ");
+    $("#ruleOut").innerHTML = `<div class="grid two"><div><div class="mono" style="color:var(--dim);font-size:11px">compiled by ${r.method}</div><pre>${esc(JSON.stringify(r.rule, null, 2))}</pre></div>
+      <div><h3>Impact on the last ${im.window_days} days</h3><div class="kv"><div>actions replayed</div><div>${im.actions_considered}</div><div>would change</div><div style="color:${im.changed?"var(--amb)":"var(--grn)"}">${im.changed}</div>
+      <div>newly gated $</div><div>${money(im.money.newly_gated)}</div><div>newly denied $</div><div>${money(im.money.newly_denied)}</div><div>newly allowed $</div><div>${money(im.money.newly_allowed)}</div></div>
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">${mx||'<span style="color:var(--dim)">no history yet</span>'}</div>
+      ${im.examples.length?`<details style="margin-top:8px"><summary>${im.examples.length} affected actions</summary><pre>${esc(im.examples.map(x=>`${x.workflow_id} ${x.action} ${JSON.stringify(x.args)}  ${x.before} → ${x.after}`).join("\n"))}</pre></details>`:""}
+      <div class="row" style="margin-top:12px"><button class="btn ok" onclick="saveRule()">Save rule</button></div></div></div>`;
+  } catch(e) { $("#ruleOut").innerHTML = `<span style="color:var(--red)">${esc(JSON.stringify(e.body.detail||e.body))}</span>`; }
+}
+async function saveRule() { try { await post("v1/policies/rules", {name: draftRule.name, nl_text: draftRule.nl, rule: draftRule}); toast("Rule saved and active", "var(--grn)"); rerender(); } catch(e) { toast(esc(JSON.stringify(e.body.detail||e.body)), "var(--red)"); } }
+async function toggleRule(id, en) { await post(`v1/policies/rules/${id}`, {enabled: en}, "PATCH"); rerender(); }
+async function delRule(id) { await api(`v1/policies/rules/${id}`, {method:"DELETE"}); rerender(); }
+
+/* ---- autonomy ---- */
+VIEWS.aut = async () => {
+  const a = await api("v1/autonomy");
+  const desc = {shadow:"Agent only proposes. Every side effect waits for a human.", progressive:"Each action type earns autonomy: after enough human reviews with a high approval rate it runs on its own. A rejection can demote it.", autonomous:"Policy alone decides. Use once you trust the system."};
+  return H("Autonomy", "Start in shadow mode, let the agent earn trust per action type, graduate to autonomous. Built-in policy, custom rules and guardrails always apply on top.") +
+   `<div class="panel"><div class="row"><div class="seg">${["shadow","progressive","autonomous"].map(m=>`<button class="${a.mode===m?"on":""}" onclick="setAutonomy('${m}')">${m}</button>`).join("")}</div><span style="color:var(--mut)">${desc[a.mode]}</span></div>
+   <div class="row" style="margin-top:12px;color:var(--dim);font-size:12.5px">promotion: ≥ ${a.min_samples} reviews at ≥ ${pct(a.threshold)} approval</div></div>
+   <div class="panel" style="margin-top:16px"><h3>Trust by action</h3><table><thead><tr><th>action</th><th>reviews</th><th>approval rate</th><th style="width:30%">progress</th><th>status</th></tr></thead><tbody>
+   ${a.actions.map(t => `<tr><td>${esc(t.action)}</td><td>${t.reviews}</td><td>${t.reviews?pct(t.approval_rate):"·"}</td><td><div class="bar ${t.trusted?"ok":""}"><i style="width:${Math.min(100, t.reviews/a.min_samples*100)}%"></i></div></td>
+     <td>${t.trusted?'<span class="pill grn">autonomous</span>':t.reviews?`<span class="pill pnk">learning · ${t.needed} to go</span>`:'<span class="pill cyn">no data</span>'}</td></tr>`).join("")}</tbody></table></div>`;
+};
+async function setAutonomy(m) { try { await post("v1/settings", {autonomy_mode: m}, "PUT"); toast(`Autonomy mode: <b>${m}</b>`, "var(--vio)"); rerender(); refreshAll(); } catch(e) { toast("Admins only", "var(--red)"); } }
+
+/* ---- connectors ---- */
+VIEWS.con = async () => {
+  const r = await api("v1/connectors");
+  const card = c => `<div class="panel"><div class="row"><b style="font-size:16px">${esc(c.name)}</b><span class="mono" style="color:var(--dim)">${esc(c.base_url)}</span><span style="flex:1"></span><button class="btn no" style="padding:5px 10px" onclick="delConn('${c.name}')">remove</button></div>
+    <table style="margin-top:10px"><thead><tr><th>tool</th><th>method</th><th>path</th><th>policy default</th></tr></thead><tbody>${Object.entries(c.operations).map(([k,o])=>`<tr><td>${esc(c.name)}__${esc(k)}<div style="color:var(--dim);font-family:inherit;font-size:12px">${esc(o.summary)}</div></td><td>${o.method}</td><td>${esc(o.path)}</td><td>${o.method==="GET"?'<span class="pill grn">read · allow</span>':'<span class="pill pnk">write · approval</span>'}</td></tr>`).join("")}</tbody></table></div>`;
+  return H("Connectors", "Plug any REST API into the agent from its OpenAPI spec. Every operation becomes a typed tool; reads are allowed, writes are gated by policy and go through idempotency + audit like built-in actions.") +
+   `<div class="panel"><h3>Register a connector</h3><div class="grid" style="grid-template-columns:200px 1fr 1fr;gap:10px"><input id="cnName" placeholder="name (snake_case)"><input id="cnBase" placeholder="base URL, e.g. https://api.example.com"><input id="cnSpec" placeholder="OpenAPI spec URL (…/openapi.json)"></div>
+    <div class="grid" style="grid-template-columns:200px 1fr;gap:10px;margin-top:10px"><input id="cnHdr" placeholder="auth header (optional)"><input id="cnVal" type="password" placeholder="auth value (optional)"></div>
+    <div class="row" style="margin-top:12px"><button class="btn pri" onclick="addConn()">Register ▸</button><button class="btn" onclick="demoConn()">⚡ Add demo CRM (4 operations)</button></div></div>
+   <div class="grid" style="margin-top:16px">${r.connectors.map(card).join("") || `<div class="panel empty">No connectors yet. Try the demo CRM.</div>`}</div>`;
+};
+async function addConn() { try { await post("v1/connectors", {name: $("#cnName").value.trim(), base_url: $("#cnBase").value.trim(), spec_url: $("#cnSpec").value.trim(), auth_header: $("#cnHdr").value.trim()||null, auth_value: $("#cnVal").value||null}); toast("Connector registered", "var(--grn)"); rerender(); } catch(e) { toast(esc(JSON.stringify(e.body.detail||e.body)), "var(--red)"); } }
+async function demoConn() { try { await post("v1/connectors/demo"); toast("Demo CRM connected · agent has 4 new tools", "var(--grn)"); rerender(); } catch(e) { toast(esc(JSON.stringify(e.body.detail||e.body)), "var(--red)"); } }
+async function delConn(n) { await api(`v1/connectors/${n}`, {method:"DELETE"}); rerender(); }
+
+/* ---- knowledge ---- */
+VIEWS.kb = async () => {
+  const r = await api("v1/knowledge/docs");
+  return H("Knowledge", "Policies, FAQs and procedures the agent can search and cite ([kb:id]). PDF, Markdown or text.") +
+   `<div class="grid two"><div class="panel"><h3>Add a document</h3><input id="kbTitle" placeholder="title"><textarea id="kbText" rows="7" style="margin-top:10px" placeholder="paste text, or choose a file below"></textarea>
+    <div class="row" style="margin-top:10px"><input id="kbFile" type="file" accept=".pdf,.md,.txt" style="flex:1"><button class="btn pri" onclick="addDoc()">Ingest ▸</button></div></div>
+    <div class="panel"><h3>Try retrieval</h3><div class="row"><input id="kbQ" placeholder="e.g. how long do refunds take?" style="flex:1"><button class="btn" onclick="kbSearch()">Search</button></div><div id="kbRes" style="margin-top:12px"></div></div></div>
+   <div class="panel" style="margin-top:16px"><h3>Documents (${r.docs.length})</h3>${r.docs.length?`<table><thead><tr><th>title</th><th>chunks</th><th>source</th><th>added</th><th></th></tr></thead><tbody>${r.docs.map(d=>`<tr><td style="font-family:inherit">${esc(d.title)}</td><td>${d.chunks}</td><td>${esc(d.source)}</td><td>${ago(d.created_at)}</td><td><button class="btn no" style="padding:4px 9px" onclick="delDoc('${d.id}')">✕</button></td></tr>`).join("")}</tbody></table>`:`<div class="empty">Empty. Add your refund policy, shipping FAQ, warranty terms…</div>`}</div>`;
+};
+async function addDoc() {
+  const f = $("#kbFile").files[0], title = $("#kbTitle").value.trim() || (f? f.name : "Untitled");
+  let body = {title, text: $("#kbText").value};
+  if (f) { const b = await f.arrayBuffer(); let bin = ""; new Uint8Array(b).forEach(x => bin += String.fromCharCode(x)); body = {title, filename: f.name, content_b64: btoa(bin)}; }
+  try { const r = await post("v1/knowledge/docs", body); toast(`Ingested ${r.chunks} chunks`, "var(--grn)"); rerender(); } catch(e) { toast(esc(JSON.stringify(e.body.detail||e.body)), "var(--red)"); }
+}
+async function kbSearch() { const r = await api("v1/knowledge/search?query=" + encodeURIComponent($("#kbQ").value)); $("#kbRes").innerHTML = r.results.map(x => `<div style="margin-bottom:10px"><span class="pill cyn">kb:${x.id}</span> <b>${esc(x.title)}</b> <span class="mono" style="color:var(--dim)">score ${x.score}</span><div style="color:var(--mut);font-size:12.5px;margin-top:4px">${esc(x.text.slice(0,300))}</div></div>`).join("") || `<span style="color:var(--dim)">no match</span>`; }
+async function delDoc(id) { await api(`v1/knowledge/docs/${id}`, {method:"DELETE"}); rerender(); }
+
+/* ---- ROI & costs ---- */
+VIEWS.roi = async () => {
+  const [r, c] = await Promise.all([api("v1/roi?days=30"), api("v1/costs?days=30")]);
+  const k = (v,l,acc) => `<div class="panel kpi" style="--acc:${acc}"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  return H("ROI & Costs", "Last 30 days. Value is computed from your own settings (minutes per ticket, hourly cost); every assumption is shown.") +
+   `<div class="grid kpis">${k(pct(r.automation_rate), `fully automated · ${r.autonomous}/${r.tickets}`, "var(--grn)")}${k(r.agent_hours_saved+"h", "agent hours saved", "var(--cyan)")}
+    ${k(money(r.net_savings_usd), `net savings (labor ${money(r.labor_saved_usd)} − LLM ${money(r.llm_cost_usd)})`, "var(--vio)")}${k(money(r.money_protected_usd), `protected · ${r.risky_actions_stopped} risky actions stopped`, "var(--amb)")}
+    ${k(r.median_time_to_resolution_s==null?"—":r.median_time_to_resolution_s+"s", "median time to resolution", "var(--pink)")}${k("$"+c.avg_cost_per_ticket.toFixed(4), "LLM cost per ticket", "var(--org)")}</div>
+   <div class="grid two" style="margin-top:16px"><div class="panel"><h3>Model router · ${esc(c.router_mode)}</h3><table><thead><tr><th>model</th><th>calls</th><th>tokens</th><th>cost</th><th>avg latency</th><th>errors</th></tr></thead><tbody>
+     ${c.by_model.map(m=>`<tr><td>${esc(m.model)}<div style="color:var(--dim);font-size:11px">${esc(m.provider)}</div></td><td>${m.calls}</td><td>${(Number(m.tin)+Number(m.tout)).toLocaleString()}</td><td>$${Number(m.cost).toFixed(4)}</td><td>${Number(m.lat||0).toFixed(2)}s</td><td>${m.errors}</td></tr>`).join("") || `<tr><td colspan=6 class="empty">no LLM calls yet</td></tr>`}</tbody></table>
+     <h3 style="margin-top:16px">Why each step was routed</h3>${c.route_reasons.map(x=>`<div class="row" style="justify-content:space-between"><span class="mono" style="font-size:12px">${esc(x.route_reason)}</span><span class="mono">${x.n}</span></div>`).join("")}</div>
+    <div class="panel"><h3>Breakdown</h3><div class="kv"><div>tickets finished</div><div>${r.tickets}</div><div>fully autonomous</div><div>${r.autonomous}</div><div>human-assisted</div><div>${r.assisted}</div><div>escalated</div><div>${r.escalated}</div><div>tokens</div><div>${r.tokens.toLocaleString()}</div></div>
+     <h3 style="margin-top:16px">Assumptions</h3><div class="kv">${Object.entries(r.assumptions).map(([a,b])=>`<div>${esc(a.replaceAll("_"," "))}</div><div>${b}</div>`).join("")}</div><div style="color:var(--dim);font-size:12px;margin-top:8px">Change them in Settings.</div></div></div>`;
+};
+
+/* ---- settings ---- */
+VIEWS.set = async () => {
+  const s = await api("v1/settings"); let w = {snippet:""}; try { w = await api("widget-demo"); } catch(e) {}
+  const f = (k, l, t="text") => `<div>${l}</div><div><input id="st_${k}" type="${t}" value="${esc(s[k]??"")}"></div>`;
+  return H("Settings", `Organization <b>${esc(S.me?.org_name||"")}</b>. Admins only.`) +
+   `<div class="grid two"><div class="panel"><h3>Behaviour</h3><div class="kv" style="grid-template-columns:200px 1fr;align-items:center">${f("brand_tone","Reply tone")}${f("trust_threshold","Trust threshold (0-1)","number")}${f("trust_min_samples","Reviews before trust","number")}
+     <div>Replies need approval</div><div><select id="st_reply_approval"><option value="true" ${s.reply_approval?"selected":""}>yes</option><option value="false" ${!s.reply_approval?"selected":""}>no (auto-send when autonomous)</option></select></div>
+     ${f("handle_minutes","Human minutes / ticket","number")}${f("hourly_cost","Human $ / hour","number")}${f("alert_escalation_rate","Alert: escalation rate","number")}${f("alert_backlog","Alert: approval backlog","number")}${f("slack_webhook","Slack webhook URL")}</div>
+     <div class="row" style="margin-top:14px"><button class="btn pri" onclick="saveSettings()">Save</button></div></div>
+    <div class="grid" style="align-content:start"><div class="panel"><h3>Website chat widget</h3><p style="color:var(--mut);margin:0 0 8px">Paste on any site. Tickets land here with guardrails applied.</p><pre>${esc(w.snippet)}</pre><button class="btn" onclick="rotate()">Rotate token</button></div>
+     <div class="panel"><h3>Other channels</h3><div class="kv"><div>Email (inbound webhook)</div><div>POST /v1/intake/email?token=…</div><div>Generic webhook</div><div>POST /v1/intake/webhook?token=…</div><div>Slack slash command</div><div>POST /v1/intake/slack?token=…</div><div>Token</div><div>${esc(s.widget_token||"—")}</div></div></div>
+     <div class="panel"><h3>Team</h3><div id="team" style="color:var(--dim)">loading…</div><div class="grid" style="grid-template-columns:1fr 1fr 130px auto;gap:8px;margin-top:10px"><input id="nuE" placeholder="email"><input id="nuP" type="password" placeholder="password (8+)"><select id="nuR"><option>approver</option><option>operator</option><option>admin</option></select><button class="btn" onclick="addUser()">Add</button></div></div></div></div>`;
+};
+async function saveSettings() {
+  const num = k => Number($("#st_"+k).value), body = {brand_tone: $("#st_brand_tone").value, trust_threshold: num("trust_threshold"), trust_min_samples: num("trust_min_samples"),
+    reply_approval: $("#st_reply_approval").value === "true", handle_minutes: num("handle_minutes"), hourly_cost: num("hourly_cost"), alert_escalation_rate: num("alert_escalation_rate"), alert_backlog: num("alert_backlog"), slack_webhook: $("#st_slack_webhook").value || null};
+  try { await post("v1/settings", body, "PUT"); toast("Settings saved", "var(--grn)"); } catch(e) { toast("Admins only", "var(--red)"); }
+}
+async function rotate() { await post("v1/settings", {rotate_widget_token: true}, "PUT"); rerender(); }
+async function loadTeam() { try { const u = await api("v1/users"); $("#team").innerHTML = u.users.map(x => `<div class="row" style="justify-content:space-between"><span>${esc(x.email)}</span><span class="pill vio">${x.role}</span></div>`).join(""); } catch(e) { $("#team").textContent = "admins only"; } }
+async function addUser() { try { await post("v1/users", {email: $("#nuE").value, password: $("#nuP").value, role: $("#nuR").value}); toast("User added", "var(--grn)"); loadTeam(); } catch(e) { toast(esc(JSON.stringify(e.body.detail||e.body)), "var(--red)"); } }
+setInterval(() => { if (S.view === "set" && $("#team") && $("#team").textContent === "loading…") loadTeam(); }, 400);
+
+/* ---- feedback on a workflow ---- */
+async function sendFeedback(wf) {
+  const wrong = [...document.querySelectorAll(".fbx:checked")].map(x => JSON.parse(decodeURIComponent(x.dataset.a)));
+  try { const r = await post(`v1/workflows/${wf}/feedback`, {expected: $("#fbExp").value, wrong_actions: wrong, note: $("#fbNote").value}); toast(`Saved as regression test <span class="mono">${r.case_id}</span>`, "var(--vio)"); }
+  catch(e) { toast(esc(JSON.stringify(e.body.detail||e.body)), "var(--red)"); }
+}
+
+/* ========================= visual layer ========================= */
+let RAF = 0, GALT = null, TOPT = null;
+function stopAnim() { cancelAnimationFrame(RAF); RAF = 0; clearInterval(GALT); clearInterval(TOPT); GALT = TOPT = null; }
+
+/* ---- Live Graph: the real compiled LangGraph topology ---- */
+let TOPO = null;
+async function topoData() { if (!TOPO) TOPO = await api("v1/graph/topology"); return TOPO; }
+function topoLayout(t) {
+  const layers = {};
+  t.nodes.forEach(n => (layers[n.layer] = layers[n.layer] || []).push(n));
+  const pos = {};
+  const W = 150, H = 560;
+  Object.entries(layers).forEach(([L, ns]) => {
+    ns.sort((a,b) => a.order - b.order);
+    const gap = H / (ns.length + 1);
+    ns.forEach((n, i) => pos[n.id] = {x: 90 + L * W, y: gap * (i + 1), n});
+  });
+  return pos;
+}
+function topoSvg(t, live) {
+  const pos = topoLayout(t), act = live.active || {}, traf = live.traffic24h || {};
+  const maxT = Math.max(1, ...Object.values(traf));
+  const BW = 118, BH = 46;
+  let s = `<svg viewBox="0 0 1000 600" class="topo"><defs>
+    <filter id="tg" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <marker id="ta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="rgba(120,180,255,.5)"/></marker></defs>`;
+  for (const e of t.edges) {
+    const a = pos[e.source], b = pos[e.target];
+    if (!a || !b) continue;
+    const back = b.x < a.x, same = b.x === a.x;
+    const w = Math.min(4, 1 + 3 * ((traf[e.target] || 0) / maxT));
+    let d;
+    if (back) d = `M ${a.x} ${a.y + BH/2} C ${a.x - 30} ${a.y + 130}, ${b.x + 30} ${b.y + 130}, ${b.x} ${b.y + BH/2}`;
+    else if (same) d = `M ${a.x + BW/2} ${a.y} C ${a.x + 70} ${(a.y + b.y)/2}, ${b.x + 70} ${(a.y + b.y)/2}, ${b.x + BW/2} ${b.y}`;
+    else d = `M ${a.x + BW/2} ${a.y} C ${(a.x + b.x)/2} ${a.y}, ${(a.x + b.x)/2} ${b.y}, ${b.x - BW/2} ${b.y}`;
+    const lit = (traf[e.target] || 0) > 0 && (traf[e.source] || e.source === "__start__" ? 1 : 0);
+    s += `<path class="edge ${lit ? "lit" : ""}" style="stroke-width:${w}${e.conditional ? "" : ";stroke-dasharray:none"}" d="${d}" marker-end="url(#ta)"/>`;
+  }
+  for (const [id, p] of Object.entries(pos)) {
+    const n = p.n, nActive = (act[id] || []).length, heat = (traf[id] || 0) / maxT;
+    let cls = "node v";
+    if (nActive) cls += " a";
+    s += `<g class="${cls}" onclick="topoClick('${id}')">
+      <rect x="${p.x - BW/2}" y="${p.y - BH/2}" width="${BW}" height="${BH}" rx="12" style="stroke:rgba(${heat > .5 ? "62,230,255" : "120,180,255"},${.25 + heat * .7})"/>
+      <text x="${p.x}" y="${p.y - 6}">${n.label}</text><text class="sm" x="${p.x}" y="${p.y + 10}">${n.sub}</text>
+      ${nActive ? `<circle cx="${p.x + BW/2 - 4}" cy="${p.y - BH/2 + 4}" r="11" fill="var(--pink)"/><text x="${p.x + BW/2 - 4}" y="${p.y - BH/2 + 5}" style="fill:#140612;font-weight:800;font-size:11px">${nActive}</text>` : ""}
+      ${traf[id] ? `<text class="sm" x="${p.x}" y="${p.y + BH/2 + 13}" style="fill:var(--dim)">${traf[id]} events · 24h</text>` : ""}
+    </g>`;
+  }
+  return s + "</svg>";
+}
+let TOPO_LIVE = {active: {}, traffic24h: {}};
+VIEWS.top = async () => {
+  const t = await topoData();
+  TOPO_LIVE = await api("v1/graph/live");
+  clearInterval(TOPT);
+  TOPT = setInterval(async () => {
+    if (S.view !== "top") return clearInterval(TOPT);
+    try { TOPO_LIVE = await api("v1/graph/live"); const el = $("#topoBox"); if (el) el.innerHTML = topoSvg(TOPO, TOPO_LIVE); } catch(e) {}
+  }, 2000);
+  const d = TOPO_LIVE.done24h || {};
+  return H("Live Graph", "The agent's actual compiled LangGraph state machine, exported from the code (not a drawing). Badges = workflows at that node right now; edge thickness = 24h traffic; dashed = conditional routing.") +
+    `<div class="row" style="margin-bottom:12px"><span class="pill grn">${d.completed||0} resolved · 24h</span><span class="pill amb">${d.escalated||0} escalated</span><span class="pill red">${d.failed||0} failed</span><span style="flex:1"></span><button class="btn" onclick="go('lab')">⚗ feed it tickets</button></div>
+    <div class="panel graph"><div id="topoBox">${topoSvg(t, TOPO_LIVE)}</div></div>
+    <div class="panel" style="margin-top:14px" id="topoSel"><h3>Node inspector</h3><div class="empty">Click a node to see the workflows sitting in it.</div></div>`;
+};
+function topoClick(id) {
+  const wfs = (TOPO_LIVE.active || {})[id] || [];
+  const n = (TOPO?.nodes || []).find(x => x.id === id) || {label: id};
+  $("#topoSel").innerHTML = `<h3>Node inspector · ${esc(n.label)}</h3>` + (wfs.length
+    ? wfs.map(w => `<button class="btn" style="margin:4px 6px 0 0" onclick="go('wfs','${esc(w)}')">${esc(w)}</button>`).join("")
+    : `<div style="color:var(--dim)">No active workflows here right now. ${esc(n.sub || "")}</div>`);
+}
+
+/* ---- Replay Theater ---- */
+function fxOf(evs) {
+  const out = [];
+  evs.forEach((ev, i) => {
+    const e = ev.event, p = jsonp(ev.payload), a = p.args || {};
+    const add = txt => out.push({i, txt});
+    if (e === "refund.issue.committed") add(`refunds  +1 row   ${a.order_id}  $${a.amount}   · orders.refunded += ${a.amount}`);
+    else if (e === "credit.issue.committed") add(`credits  +1 row   ${a.customer_id}  $${a.amount}   · credit_balance += ${a.amount}`);
+    else if (e === "order.cancel.committed") add(`orders   UPDATE   ${a.order_id}.status → cancelled`);
+    else if (e === "order.update_address.committed") add(`orders   UPDATE   ${a.order_id}.address → ${(a.new_address||"").slice(0,34)}…`);
+    else if (e === "inventory.purchase_order.committed") add(`purchase_orders  +1 row   ${a.sku} × ${a.quantity}`);
+    else if (e === "account.unlock.committed") add(`accounts UPDATE   ${a.account_id}.locked → false`);
+    else if (e === "account.reset_credentials.committed") add(`accounts UPDATE   ${a.account_id}.credential_resets += 1`);
+    else if (e === "shipment.reship.committed") add(`reships  +1 row   ${a.order_id}`);
+    else if (e.startsWith("connector.") && e.endsWith(".committed")) add(`external ${e.replace(".committed","")}  ${argsStr(a).slice(0,40)}`);
+    else if (e === "ticket.resolve.committed") add(`tickets  UPDATE   status → resolved`);
+    else if (e === "ticket.escalate.committed") add(`tickets  UPDATE   status → escalated`);
+    else if (e.endsWith(".replayed")) add(`idempotency HIT    duplicate ${e.replace(".replayed","")} prevented`);
+    else if (e === "approval.decided") add(`approvals UPDATE  ${p.approval_id||""} → ${p.decision}`);
+    else if (e === "chaos.crash") add(`⚡ process KILLED at ${p.point} (no cleanup)`);
+  });
+  return out;
+}
+function replayStatus(evs, full) {
+  const last = evs[evs.length - 1];
+  if (!last) return "running";
+  if (last.event === "workflow.completed") return "completed";
+  if (last.event === "workflow.escalated" || last.event === "workflow.auto_escalated") return "escalated";
+  if (last.event === "workflow.failed") return "failed";
+  return evs.length === full ? (S.detail?.workflow?.status || "running") : "running";
+}
+function replayHtml(evs) {
+  const N = evs.length, i = S.replayI === null ? N - 1 : S.replayI;
+  const fx = fxOf(evs.slice(0, i + 1));
+  return `<div class="rp">
+    <button class="btn" id="rpPlay" onclick="replayPlay()">${S.replayT ? "⏸" : "▶"} replay</button>
+    <input type="range" min="0" max="${N - 1}" value="${i}" oninput="replaySet(+this.value)">
+    <span class="lbl" id="rpLbl">${replayLbl(evs, i)}</span>
+    <button class="btn" onclick="replayLive()">⏭ live</button></div>
+    <div class="fx" id="rpFx">${fx.map(f => `<div class="${f.i === i ? "now" : ""}">${esc(f.txt)}</div>`).join("") || `<div>database untouched so far</div>`}</div>`;
+}
+function replayLbl(evs, i) {
+  const ev = evs[i]; if (!ev) return "";
+  const [, title] = describe(ev);
+  return `step ${i + 1}/${evs.length} · ${fmtT(ev.ts_iso)} · ${title}`;
+}
+function detailEvs() {
+  const d = S.detail;
+  return d.events.concat(S.events.filter(e => e.workflow_id === d.workflow.id && e.id > (d.events.length ? d.events[d.events.length - 1].id : 0)));
+}
+function replaySet(i) {
+  S.replayI = i;
+  const evs = detailEvs(), part = evs.slice(0, i + 1);
+  $("#rpGraph").innerHTML = graphSvg(part, replayStatus(part, evs.length));
+  $("#rpLbl").textContent = replayLbl(evs, i);
+  const fx = fxOf(part);
+  $("#rpFx").innerHTML = fx.map(f => `<div class="${f.i === i ? "now" : ""}">${esc(f.txt)}</div>`).join("") || `<div>database untouched so far</div>`;
+}
+function replayPlay() {
+  if (S.replayT) { clearInterval(S.replayT); S.replayT = null; $("#rpPlay").textContent = "▶ replay"; return; }
+  const evs = detailEvs();
+  if (S.replayI === null || S.replayI >= evs.length - 1) S.replayI = -1;
+  $("#rpPlay").textContent = "⏸";
+  S.replayT = setInterval(() => {
+    const n = detailEvs().length;
+    if (S.replayI >= n - 1) { clearInterval(S.replayT); S.replayT = null; const b = $("#rpPlay"); if (b) b.textContent = "▶ replay"; return; }
+    replaySet(S.replayI + 1);
+    const sl = document.querySelector(".rp input"); if (sl) sl.value = S.replayI;
+  }, 650);
+}
+function replayLive() { clearInterval(S.replayT); S.replayT = null; S.replayI = null; render(); }
+
+/* ---- Operations Galaxy ---- */
+function galaxyBuild() {
+  const nodes = [{id: "hub", label: "ResolveOS", r: 26, c: "#3ee6ff", fx: true}];
+  const links = [], idx = {hub: 0};
+  const add = (id, label, r, c, anchor) => { if (idx[id] === undefined) { idx[id] = nodes.length; nodes.push({id, label, r, c, anchor}); } return idx[id]; };
+  const link = (a, b, w) => { const L = links.find(l => l.a === a && l.b === b); if (L) L.w += w; else links.push({a, b, w}); };
+  for (const w of S.wfs.slice(0, 40)) {
+    const ch = add("ch:" + w.channel, w.channel, 13, "#9b7bff", "left");
+    link(ch, 0, 1);
+  }
+  for (const ev of S.events) {
+    const p = jsonp(ev.payload);
+    if (ev.event === "tool.executed" && p.tool) { const t = add("t:" + p.tool, p.tool.replace(/__/g, "·"), 11, p.tool.includes("__") ? "#ff8a3d" : "#34e0a1", "right"); link(0, t, 1); }
+    if (ev.event === "llm.step" && p.model) { const m = add("m:" + p.model, p.model, 14, "#ffc04d", "top"); link(0, m, 1); }
+    if (ev.event === "gate.denied") { const g = add("x:deny", "policy denials", 12, "#ff4d6d", "bottom"); link(0, g, 1); }
+    if (ev.event.startsWith("chaos.")) { const g = add("x:chaos", "injected faults", 12, "#ff8a3d", "bottom"); link(0, g, 1); }
+    if (ev.event.startsWith("guardrail.")) { const g = add("x:guard", "guardrails", 12, "#ff6fd8", "bottom"); link(0, g, 1); }
+  }
+  return {nodes, links};
+}
+VIEWS.gal = async () => H("Operations Galaxy", "Live force map of the whole operation: channels feed the core, the core drives models, tools and external systems. Particles = events flowing right now; red = policy denials, orange = faults.") +
+  `<div class="panel" style="padding:8px"><canvas id="galc" class="gal"></canvas></div>
+   <p class="sub" style="margin-top:10px">It redraws itself from the live audit stream; launch a burst (<span class="mono">bash scripts/08_burst.sh 15</span>) and watch it light up.</p>`;
+function galaxyStart() {
+  const cv = $("#galc"); if (!cv) return;
+  const DPR = window.devicePixelRatio || 1;
+  let Wp = cv.clientWidth, Hp = cv.clientHeight;
+  cv.width = Wp * DPR; cv.height = Hp * DPR;
+  const ctx = cv.getContext("2d"); ctx.scale(DPR, DPR);
+  let g = galaxyBuild(), parts = [];
+  g.nodes.forEach((n, i) => { n.x = Wp/2 + (Math.random() - .5) * 300; n.y = Hp/2 + (Math.random() - .5) * 200; n.vx = n.vy = 0; if (n.fx) { n.x = Wp/2; n.y = Hp/2; } });
+  GALT = setInterval(() => { if (S.view !== "gal") return; const g2 = galaxyBuild(); for (const n of g2.nodes) { const old = g.nodes.find(o => o.id === n.id); if (old) { n.x = old.x; n.y = old.y; n.vx = old.vx; n.vy = old.vy; } else { n.x = Wp/2 + (Math.random()-.5)*80; n.y = Hp/2 + (Math.random()-.5)*80; n.vx = n.vy = 0; } } g = g2; }, 5000);
+  window.galaxyPulse = (linkColor, toAnchor) => {
+    const cands = g.links.filter(l => { const b = g.nodes[l.b]; return !toAnchor || (b && b.anchor === toAnchor) || l.b === 0; });
+    const l = cands[Math.floor(Math.random() * cands.length)] || g.links[0];
+    if (l) parts.push({l, t: 0, sp: .012 + Math.random() * .012, c: linkColor});
+  };
+  function step() {
+    if (S.view !== "gal") return;
+    for (let i = 0; i < g.nodes.length; i++) for (let j = i + 1; j < g.nodes.length; j++) {
+      const a = g.nodes[i], b = g.nodes[j];
+      let dx = a.x - b.x, dy = a.y - b.y, d2 = dx*dx + dy*dy + 40, f = 1900 / d2;
+      dx *= f; dy *= f; if (!a.fx) { a.vx += dx; a.vy += dy; } if (!b.fx) { b.vx -= dx; b.vy -= dy; }
+    }
+    for (const l of g.links) {
+      const a = g.nodes[l.a], b = g.nodes[l.b];
+      const dx = b.x - a.x, dy = b.y - a.y, d = Math.sqrt(dx*dx + dy*dy) || 1, want = 150 + 40 * Math.min(3, 8/(l.w+1));
+      const f = (d - want) * .004;
+      if (!a.fx) { a.vx += dx/d*f; a.vy += dy/d*f; } if (!b.fx) { b.vx -= dx/d*f; b.vy -= dy/d*f; }
+    }
+    for (const n of g.nodes) {
+      if (n.fx) continue;
+      if (n.anchor === "left") n.vx += (Wp*.2 - n.x) * .004;
+      if (n.anchor === "right") n.vx += (Wp*.8 - n.x) * .004;
+      if (n.anchor === "top") n.vy += (Hp*.16 - n.y) * .004;
+      if (n.anchor === "bottom") n.vy += (Hp*.82 - n.y) * .004;
+      n.vx += (Wp/2 - n.x) * .0006; n.vy += (Hp/2 - n.y) * .0006;
+      n.vx *= .86; n.vy *= .86; n.x += n.vx; n.y += n.vy;
+      n.x = Math.max(70, Math.min(Wp - 70, n.x)); n.y = Math.max(40, Math.min(Hp - 40, n.y));
+    }
+    ctx.clearRect(0, 0, Wp, Hp);
+    ctx.lineWidth = 1;
+    for (const l of g.links) {
+      const a = g.nodes[l.a], b = g.nodes[l.b];
+      ctx.strokeStyle = "rgba(120,180,255," + Math.min(.3, .05 + l.w * .01) + ")";
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+    if (Math.random() < .25 && g.links.length) { const l = g.links[Math.floor(Math.random()*g.links.length)]; parts.push({l, t: 0, sp: .008 + Math.random()*.01, c: "#3ee6ff"}); }
+    parts = parts.filter(p => p.t <= 1);
+    for (const p of parts) {
+      p.t += p.sp;
+      const a = g.nodes[p.l.a], b = g.nodes[p.l.b];
+      if (!a || !b) { p.t = 2; continue; }
+      const x = a.x + (b.x - a.x) * p.t, y = a.y + (b.y - a.y) * p.t;
+      ctx.shadowColor = p.c; ctx.shadowBlur = 8; ctx.fillStyle = p.c;
+      ctx.beginPath(); ctx.arc(x, y, 2.2, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+    }
+    for (const n of g.nodes) {
+      ctx.shadowColor = n.c; ctx.shadowBlur = n.fx ? 26 : 13;
+      ctx.fillStyle = "rgba(6,10,20,.92)"; ctx.strokeStyle = n.c; ctx.lineWidth = n.fx ? 2 : 1.3;
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, 7); ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
+      ctx.fillStyle = "#dce6f7"; ctx.font = (n.fx ? "700 13px" : "500 11px") + " ui-monospace,monospace"; ctx.textAlign = "center";
+      ctx.fillText(n.label.slice(0, 22), n.x, n.y + n.r + 13);
+    }
+    RAF = requestAnimationFrame(step);
+  }
+  RAF = requestAnimationFrame(step);
+}
+
+/* ---- Analytics ---- */
+const VCOL = {"autonomous": "#34e0a1", "human approval": "#ff6fd8", "policy denied": "#ffc04d", "injection locked": "#ff4d6d"};
+const OCOL = {completed: "#34e0a1", escalated: "#ffc04d", failed: "#ff4d6d"};
+function sankeySvg(rows) {
+  if (!rows.length) return `<div class="empty">No finished workflows yet.</div>`;
+  const W = 940, Hh = 420, PAD = 30, NW = 12;
+  const cols = [[...new Set(rows.map(r => r.channel))], [...new Set(rows.map(r => r.verdict))], [...new Set(rows.map(r => r.outcome))]];
+  const tot = key => rows.reduce((s, r) => s + r.n, 0);
+  const totals = [0, 1, 2].map(ci => Object.fromEntries(cols[ci].map(v => [v, rows.filter(r => [r.channel, r.verdict, r.outcome][ci] === v).reduce((s, r) => s + r.n, 0)])));
+  const T = tot(), scale = (Hh - PAD * 2 - 14 * Math.max(...cols.map(c => c.length))) / T;
+  const pos = cols.map((vals, ci) => { let y = PAD; const o = {}; vals.forEach(v => { o[v] = {y, h: Math.max(4, totals[ci][v] * scale)}; y += o[v].h + 14; }); return o; });
+  const X = [40, W / 2 - NW / 2, W - 40 - NW];
+  let s = `<svg viewBox="0 0 ${W} ${Hh}" class="sk">`;
+  const off = [ {}, {}, {} ];
+  const seg = (ci, a, b, va, vb, n, color) => {
+    const pa = pos[ci][va], pb = pos[ci + 1][vb];
+    const oa = off[ci][va] = off[ci][va] || {o: 0}, ob = off[ci + 1]["_" + vb] = off[ci + 1]["_" + vb] || {o: 0};
+    const h = Math.max(1.5, n * scale), y1 = pa.y + oa.o + h / 2, y2 = pb.y + ob.o + h / 2;
+    oa.o += h; ob.o += h;
+    const x1 = X[ci] + NW, x2 = X[ci + 1];
+    s += `<path d="M ${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2}" stroke="${color}" stroke-width="${h}" fill="none"><title>${va} → ${vb}: ${n}</title></path>`;
+  };
+  const agg = {};
+  rows.forEach(r => { agg[r.channel + "|" + r.verdict] = (agg[r.channel + "|" + r.verdict] || 0) + r.n; });
+  Object.entries(agg).forEach(([k, n]) => { const [a, b] = k.split("|"); seg(0, 0, 1, a, b, n, VCOL[b] || "#3ee6ff"); });
+  const agg2 = {};
+  rows.forEach(r => { agg2[r.verdict + "|" + r.outcome] = (agg2[r.verdict + "|" + r.outcome] || 0) + r.n; });
+  Object.entries(agg2).forEach(([k, n]) => { const [a, b] = k.split("|"); seg(1, 0, 1, a, b, n, OCOL[b] || "#9b7bff"); });
+  cols.forEach((vals, ci) => vals.forEach(v => {
+    const p = pos[ci][v];
+    s += `<rect class="nd" x="${X[ci]}" y="${p.y}" width="${NW}" height="${p.h}" rx="4" style="stroke:${(ci === 1 ? VCOL[v] : ci === 2 ? OCOL[v] : "#3ee6ff") || "#3ee6ff"}"/>
+          <text x="${X[ci] + (ci === 2 ? -6 : NW + 6)}" y="${p.y + p.h / 2 + 4}" ${ci === 2 ? 'text-anchor="end"' : ""}>${v} · ${totals[ci][v]}</text>`;
+  }));
+  return s + `<text x="${X[0]}" y="16">channel</text><text x="${X[1]}" y="16">how it was decided</text><text x="${X[2]}" y="16" text-anchor="end">outcome</text></svg>`;
+}
+VIEWS.ana = async () => {
+  const d = await api("v1/analytics/flows?days=30");
+  const hm = {}; d.heatmap.forEach(r => hm[r.dow + ":" + r.hour] = r.n);
+  const mx = Math.max(1, ...d.heatmap.map(r => r.n));
+  const days = ["Su","Mo","Tu","We","Th","Fr","Sa"];
+  let heat = `<div class="hm"><div></div>${Array.from({length:24},(_,h)=>`<div>${h%6===0?h:""}</div>`).join("")}`;
+  for (let dw = 0; dw < 7; dw++) { heat += `<div>${days[dw]}</div>`; for (let h = 0; h < 24; h++) { const n = hm[dw + ":" + h] || 0; heat += `<div title="${days[dw]} ${h}:00 · ${n}" style="background:rgba(62,230,255,${n ? .12 + .75 * n / mx : .03})"></div>`; } }
+  heat += "</div>";
+  const lmax = Math.max(1, ...d.latency_by_hour.map(r => +r.p50 || 0));
+  const lat = `<svg viewBox="0 0 480 110">${d.latency_by_hour.map(r => `<rect x="${r.hour * 20}" y="${100 - 90 * (+r.p50 || 0) / lmax}" width="14" height="${90 * (+r.p50 || 0) / lmax}" rx="3" fill="rgba(155,123,255,.7)"><title>${r.hour}:00 · p50 ${(+r.p50).toFixed(1)}s · ${r.n} wf</title></rect>`).join("")}</svg>`;
+  const curves = d.trust_curves.map(t => {
+    const pts = t.points.map((v, i) => `${(i / Math.max(1, t.points.length - 1)) * 190},${60 - v * 50}`).join(" ");
+    return `<div class="panel" style="padding:12px"><div class="mono" style="font-size:11.5px;color:var(--mut)">${esc(t.action)}</div>
+      <svg viewBox="0 0 190 64"><polyline points="${pts}" fill="none" stroke="var(--grn)" stroke-width="2"/><line x1="0" y1="12.5" x2="190" y2="12.5" stroke="rgba(255,255,255,.12)" stroke-dasharray="3 3"/></svg>
+      <div class="mono" style="font-size:11px;color:var(--dim)">${t.reviews} reviews · ${pct(t.rate)} approved</div></div>`;
+  }).join("");
+  const hours = [...new Set(d.cost_series.map(r => r.h))];
+  const cmax = Math.max(1e-9, ...hours.map(h => d.cost_series.filter(r => r.h === h).reduce((s, r) => s + +r.cost, 0)));
+  const cost = `<svg viewBox="0 0 480 110">${hours.map((h, i) => { let y = 100; return d.cost_series.filter(r => r.h === h).map(r => { const bh = 90 * (+r.cost) / cmax; y -= bh; return `<rect x="${i * (470 / Math.max(hours.length,1))}" y="${y}" width="${Math.max(3, 440 / Math.max(hours.length,1))}" height="${Math.max(bh, +r.cost > 0 ? 1.5 : 0)}" fill="${r.provider === "strong" ? "#ffc04d" : "#3ee6ff"}" opacity=".8"><title>${h.slice(5, 16)} · ${r.provider}: $${(+r.cost).toFixed(4)} · ${r.calls} calls</title></rect>`; }).join(""); }).join("")}</svg>`;
+  return H("Analytics", "Where tickets come from, how they get decided, and what it costs. Last 30 days (cost: 48 h).") +
+    `<div class="panel"><h3>Decision flow</h3>${sankeySvg(d.sankey)}</div>
+     <div class="grid two" style="margin-top:16px">
+       <div class="panel"><h3>Volume heatmap · weekday × hour</h3>${heat}</div>
+       <div class="grid" style="align-content:start">
+         <div class="panel"><h3>p50 resolution by hour of day</h3>${lat}</div>
+         <div class="panel"><h3>LLM cost per hour <span class="pill cyn" style="margin-left:8px">primary</span> <span class="pill amb">strong</span></h3>${cost}</div>
+       </div></div>
+     <h3 style="margin:22px 0 10px;color:var(--mut);font-size:12px;letter-spacing:1.6px;text-transform:uppercase">Trust curves · approval rate over time</h3>
+     <div class="spark">${curves || `<div class="panel empty">No human reviews yet. Switch Autonomy to shadow and handle a few tickets.</div>`}</div>`;
+};
+
+/* ------------------------- boot ------------------------- */
+function lgMode(m) { $("#lgPw").classList.toggle("hidden", m!=="pw"); $("#lgKey").classList.toggle("hidden", m!=="key"); }
+function showLogin(err) { $("#login").classList.remove("hidden"); $("#keyErr").textContent = err || ""; $("#keyIn").value = ""; $("#pwIn").value = ""; ($("#lgPw").classList.contains("hidden")? $("#keyIn"):$("#emIn")).focus(); }
+async function pwLogin() {
+  try { const r = await fetch(BASE + "v1/auth/login", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({email: $("#emIn").value.trim(), password: $("#pwIn").value})});
+    const d = await r.json(); if (!r.ok) return $("#keyErr").textContent = "Wrong email or password";
+    KEY = d.token; store.set("resolveos_key", KEY); boot(); } catch(e) { $("#keyErr").textContent = "API unreachable"; } }
+async function boot() {
+  try { const who = await api("v1/me"); S.me = who; $("#whoBtn").textContent = `${who.principal} · ${who.org_name}`; }
+  catch(e) { return showLogin(e.status === 401 ? (KEY? "Key rejected" : "") : "API unreachable: " + e.message); }
+  $("#login").classList.add("hidden");
+  try { S.demos = (await api("v1/demo/scenarios")).scenarios; } catch(e) {}
+  const r = await api("v1/events?limit=150"); S.events = r.events; S.lastId = r.events.length ? r.events[r.events.length-1].id : 0;
+  await refreshAll(); render(); connect();
+}
+$("#keyGo").onclick = () => { KEY = $("#keyIn").value.trim(); store.set("resolveos_key", KEY); boot(); };
+$("#pwGo").onclick = pwLogin; $("#pwIn").addEventListener("keydown", e => { if (e.key === "Enter") pwLogin(); });
+$("#keyIn").addEventListener("keydown", e => { if (e.key === "Enter") $("#keyGo").click(); });
+$("#whoBtn").onclick = () => { KEY = ""; store.set("resolveos_key", ""); if (es) es.close(); showLogin(); };
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => go(b.dataset.v));
+setInterval(() => { if (KEY && S.mode !== "off") scheduleRefresh(); }, 6000);
+boot();
+</script>
+</body>
+</html>

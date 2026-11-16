@@ -1,0 +1,34 @@
+ResolveOS GitHub Showcase Kit
+=============================
+
+What is inside:
+  README.md                      premium GitHub landing page (will overwrite original)
+  docs/assets/                   real UI screenshots, montage GIFs, hero-banner and optional AI concept art
+  docs/ASSETS.md                 clear labels for authentic screenshots versus concept visuals
+  docs/PUBLISH.md                copy/paste instructions for publishing from BU SCC
+  PUBLIC_GITIGNORE.snippet       additional ignore rules
+  tools/merge_public_gitignore.sh appends ignore rules to your existing .gitignore
+  tools/public_preflight.py      checks staged filenames and secret patterns
+
+IMPORTANT: This is a README/assets overlay, NOT the entire ResolveOS source code.
+Do not publicly publish keys, credentials, database storage, model weights, or internal files.
+
+START: open docs/PUBLISH.md first.
+
+FAST SCC -> GITHUB (after uploading ZIP to /projectnb/medaihack/team4):
+  cd /projectnb/medaihack/team4/ResolveOS
+  cp README.md ../ResolveOS_README_before_showcase.md
+  unzip -o ../ResolveOS_GitHub_Kit.zip
+  bash tools/merge_public_gitignore.sh
+  git init
+  git branch -M main
+  git remote add origin git@github.com:Delimiter-Ashish/resolveOS.git
+  git add .
+  python3 tools/public_preflight.py
+  git diff --cached --stat
+  # Inspect and commit only if safe:
+  git commit -m "feat: launch ResolveOS v5 showcase"
+  git push -u origin main
+
+If git remote add origin says it already exists, run git remote -v and
+verify the target instead of replacing it blindly.

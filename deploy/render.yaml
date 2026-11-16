@@ -1,0 +1,37 @@
+# Render Blueprint (render.com -> New -> Blueprint). Move this file to the repo root first.
+# Note: Render background workers are a paid instance type.
+databases:
+  - name: resolveos-db
+    databaseName: resolveos
+    user: resolveos
+envVarGroups:
+  - name: resolveos-shared
+    envVars:
+      - {key: RESOLVEOS_SECRET_KEY, generateValue: true}
+      - {key: RESOLVEOS_AGENT_API_KEY, generateValue: true}
+      - {key: RESOLVEOS_APPROVER_API_KEY, generateValue: true}
+      - {key: RESOLVEOS_OPERATOR_API_KEY, generateValue: true}
+      - {key: RESOLVEOS_ADMIN_API_KEY, generateValue: true}
+      - {key: RESOLVEOS_LLM_BASE_URL, value: "https://generativelanguage.googleapis.com/v1beta/openai/"}
+      - {key: RESOLVEOS_LLM_MODEL, value: gemini-flash-latest}
+      - {key: RESOLVEOS_LLM_API_KEY, sync: false}
+      - {key: RESOLVEOS_PUBLIC_URL, sync: false}
+services:
+  - type: web
+    name: resolveos-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      - {key: ROLE, value: api}
+      - {key: RESOLVEOS_DATABASE_URL, fromDatabase: {name: resolveos-db, property: connectionString}}
+      - fromGroup: resolveos-shared
+  - type: worker
+    name: resolveos-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - {key: ROLE, value: worker}
+      - {key: RESOLVEOS_DATABASE_URL, fromDatabase: {name: resolveos-db, property: connectionString}}
+      - {key: RESOLVEOS_API_BASE_URL, value: "https://resolveos-api.onrender.com"}
+      - fromGroup: resolveos-shared

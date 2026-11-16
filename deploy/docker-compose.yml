@@ -1,0 +1,29 @@
+# docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+# GPU model server too:  ... --profile gpu up -d
+services:
+  db:
+    image: postgres:16
+    environment: {POSTGRES_USER: resolveos, POSTGRES_PASSWORD: "${DB_PASSWORD:-resolveos}", POSTGRES_DB: resolveos}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U resolveos"], interval: 5s, retries: 20}
+  api:
+    build: {context: .., dockerfile: Dockerfile}
+    env_file: .env
+    environment: {ROLE: api, RESOLVEOS_DATABASE_URL: "postgresql://resolveos:${DB_PASSWORD:-resolveos}@db:5432/resolveos", RESOLVEOS_API_BASE_URL: "http://api:8080"}
+    ports: ["8080:8080"]
+    depends_on: {db: {condition: service_healthy}}
+    healthcheck: {test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8080/healthz')"], interval: 10s, retries: 10}
+  worker:
+    build: {context: .., dockerfile: Dockerfile}
+    env_file: .env
+    environment: {ROLE: worker, RESOLVEOS_DATABASE_URL: "postgresql://resolveos:${DB_PASSWORD:-resolveos}@db:5432/resolveos", RESOLVEOS_API_BASE_URL: "http://api:8080"}
+    depends_on: {api: {condition: service_healthy}}
+    deploy: {replicas: 2}
+  vllm:
+    profiles: ["gpu"]
+    image: vllm/vllm-openai:latest
+    command: ["--model", "Qwen/Qwen2.5-7B-Instruct", "--served-model-name", "resolveos-llm", "--enable-auto-tool-choice",
+              "--tool-call-parser", "hermes", "--max-model-len", "8192", "--enforce-eager"]
+    deploy: {resources: {reservations: {devices: [{driver: nvidia, count: 1, capabilities: [gpu]}]}}}
+    volumes: [hf:/root/.cache/huggingface]
+volumes: {pgdata: {}, hf: {}}
